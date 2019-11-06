@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -55,10 +56,9 @@ func runSorted() error {
 	}
 	var rr []*r
 
-	fn := func(path string, matches [][][]byte, err error) bool {
+	fn := func(path string, matches [][][]byte, err error) error {
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return false
+			return err
 		}
 
 		rr = append(rr, &r{
@@ -66,7 +66,7 @@ func runSorted() error {
 			matches: matches,
 		})
 
-		return true
+		return nil
 	}
 
 	err = grep.Grep(flagPortsRoot, rxs, fn, runtime.NumCPU())
@@ -78,7 +78,18 @@ func runSorted() error {
 		return rr[i].origin < rr[j].origin
 	})
 
+	var needSep bool
+
 	for _, r := range rr {
+		if flagOneLine {
+			if needSep {
+				fmt.Print(" ")
+			}
+			fmt.Print(r.origin)
+			needSep = true
+			continue
+		}
+
 		if flagOriginOnly {
 			fmt.Println(r.origin)
 			continue
@@ -102,16 +113,25 @@ func runUnsorted() error {
 	}
 
 	prefix := flagPortsRoot + "/"
+	var needSep bool
 
-	fn := func(path string, matches [][][]byte, err error) bool {
+	fn := func(path string, matches [][][]byte, err error) error {
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return false
+			return err
+		}
+
+		if flagOneLine {
+			if needSep {
+				fmt.Print(" ")
+			}
+			fmt.Print(strings.TrimPrefix(path, prefix))
+			needSep = true
+			return nil
 		}
 
 		if flagOriginOnly {
 			fmt.Println(strings.TrimPrefix(path, prefix))
-			return true
+			return nil
 		}
 
 		if matches != nil {
@@ -121,7 +141,7 @@ func runUnsorted() error {
 			}
 		}
 
-		return true
+		return nil
 	}
 
 	return grep.Grep(flagPortsRoot, rxs, fn, runtime.NumCPU())
@@ -130,16 +150,16 @@ func runUnsorted() error {
 func regexps() ([]*regexp.Regexp, error) {
 	var res []*regexp.Regexp
 
-	if searchMaintainer != "" {
-		re, err := grep.Compile(grep.MAINTAINER, searchMaintainer)
+	if queryMaintainer != "" {
+		re, err := grep.Compile(grep.MAINTAINER, queryMaintainer, flagRegexp)
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, re)
 	}
 
-	if searchUses != "" {
-		re, err := grep.Compile(grep.USES, searchUses)
+	if queryUses != "" {
+		re, err := grep.Compile(grep.USES, queryUses, flagRegexp)
 		if err != nil {
 			return nil, err
 		}
@@ -150,49 +170,62 @@ func regexps() ([]*regexp.Regexp, error) {
 }
 
 var (
-	flagPortsRoot    = "/usr/ports"
-	flagOriginOnly   bool
-	flagSort         bool
-	searchMaintainer string
-	searchUses       string
-)
+	flagPortsRoot   = "/usr/ports"
+	flagVersion     bool
+	flagOneLine     bool
+	flagOriginOnly  bool
+	flagSort        bool
+	flagRegexp      bool
+	queryMaintainer string
+	queryUses       string
 
-var (
-	flagVersion bool
-	version     = "devel"
+	version = "devel"
 )
 
 func init() {
+	// disable GC, this is short-running utility and performance is more
+	// important than memory consumpltion
+	debug.SetGCPercent(-1)
+
 	basename := path.Base(os.Args[0])
 
-	if val, ok := os.LookupEnv("PORTS_ROOT"); ok {
+	if val, ok := os.LookupEnv("PORTSDIR"); ok {
 		flagPortsRoot = val
 	}
 
-	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "ports tree root")
-	flag.BoolVar(&flagOriginOnly, "o", false, "output origins only")
-	flag.BoolVar(&flagSort, "s", false, "sort results by origin")
-	flag.BoolVar(&flagVersion, "v", false, "show version")
-	flag.StringVar(&searchMaintainer, "m", "", "search by maintainer")
-	flag.StringVar(&searchUses, "u", "", "search by USES")
+	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
+	flag.BoolVar(&flagVersion, "v", false, "")
+
+	flag.BoolVar(&flagOneLine, "1", false, "")
+	flag.BoolVar(&flagOriginOnly, "o", false, "")
+	flag.BoolVar(&flagSort, "s", false, "")
+	flag.BoolVar(&flagRegexp, "x", false, "")
+
+	flag.StringVar(&queryMaintainer, "m", "", "")
+	flag.StringVar(&queryUses, "u", "", "")
 
 	flag.Usage = func() {
-		usageTemplate.Execute(os.Stderr, map[string]string{
+		err := usageTemplate.Execute(os.Stderr, map[string]string{
 			"basename":  basename,
 			"portsRoot": flagPortsRoot,
 		})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
-var usageTemplate = template.Must(template.New("Usage").Parse(`usage: {{.basename}} <options>
+var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} <options>
 
 Global options:
-  -R ROOT        ports tree root (default: {{.portsRoot}})
-  -v             show version
+  -R path   ports tree root (default: {{.portsRoot}})
+  -v        show version
 
 Search options:
-  -o             output origins only
-  -s             sort results by origin
-  -m MAINTAINER  search by MAINTAINER
-  -u USES        search by USES
+  -1        output origins in a single line (implies -o)
+  -o        output origins only
+  -s        sort results by origin
+  -x        treat query as a regular expression
+  -m query  search by MAINTAINER
+  -u query  search by USES
 `))

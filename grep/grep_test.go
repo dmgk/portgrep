@@ -18,7 +18,38 @@ func TestMaintainer(t *testing.T) {
 		"_MAINTAINER=	ports",
 	}
 
-	re, err := Compile(MAINTAINER, "ports@freeb")
+	re, err := Compile(MAINTAINER, "ports@freeb", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range matches {
+		res := re.FindStringSubmatch(x)
+		if res == nil {
+			t.Errorf("[matches #%d] expected to match %q", i, x)
+		}
+	}
+
+	for i, x := range nomatches {
+		res := re.FindStringSubmatch(x)
+		if res != nil {
+			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
+		}
+	}
+}
+
+func TestMaintainerRe(t *testing.T) {
+	matches := []string{
+		"MAINTAINER=	ports@freebsd.org",
+		"MAINTAINER=	ports@FreeBSD.org",
+	}
+
+	nomatches := []string{
+		"MAINTAINER=	xports@freebsd.org",
+		"MAINTAINER=	dmgk@freebsd.org",
+	}
+
+	re, err := Compile(MAINTAINER, "p.*s@", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +88,7 @@ func TestUses(t *testing.T) {
 		"XUSES=	go",
 	}
 
-	re, err := Compile(USES, "go")
+	re, err := Compile(USES, "go", false)
 	if err != nil {
 		t.Fatal(err)
 	}

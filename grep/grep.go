@@ -2,13 +2,16 @@ package grep
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"sync"
 )
 
-type GrepFunc func(path string, matches [][][]byte, err error) bool
+var Stop = errors.New("stop")
+
+type GrepFunc func(path string, matches [][][]byte, err error) error
 
 func Grep(root string, rxs []*regexp.Regexp, fn GrepFunc, jobs int) error {
 	walkPipe, err := walk(root, jobs)
@@ -21,8 +24,11 @@ func Grep(root string, rxs []*regexp.Regexp, fn GrepFunc, jobs int) error {
 	}
 
 	for x := range grepPipe {
-		if !fn(x.path, x.matches, x.err) {
-			break
+		if err := fn(x.path, x.matches, x.err); err != nil {
+			if err == Stop {
+				break
+			}
+			return err
 		}
 	}
 
@@ -43,10 +49,10 @@ type walkResult struct {
 	err  error
 }
 
-type walkChan chan *walkResult
+type walkChan chan walkResult
 
 func walk(root string, jobs int) (walkChan, error) {
-	rootDir, err := ioutil.ReadDir(root)
+	dir, err := ioutil.ReadDir(root)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +65,7 @@ func walk(root string, jobs int) (walkChan, error) {
 		var wg sync.WaitGroup
 		sem := make(chan int, jobs)
 
-		for _, fi := range rootDir {
+		for _, fi := range dir {
 			if !fi.IsDir() {
 				continue
 			}
@@ -72,21 +78,21 @@ func walk(root string, jobs int) (walkChan, error) {
 			sem <- 1
 			wg.Add(1)
 
-			go func(name string) {
+			go func(category string) {
 				defer func() {
 					<-sem
 					wg.Done()
 				}()
 
-				categoryRoot := filepath.Join(root, name)
-				categoryDir, err := ioutil.ReadDir(categoryRoot)
+				categoryRoot := filepath.Join(root, category)
+				dir, err := ioutil.ReadDir(categoryRoot)
 				if err != nil {
-					out <- &walkResult{err: err}
+					out <- walkResult{err: err}
 					return
 				}
-				for _, fi := range categoryDir {
+				for _, fi := range dir {
 					if fi.IsDir() {
-						out <- &walkResult{path: filepath.Join(categoryRoot, fi.Name())}
+						out <- walkResult{path: filepath.Join(categoryRoot, fi.Name())}
 					}
 				}
 			}(name)
@@ -104,7 +110,7 @@ type grepResult struct {
 	err     error
 }
 
-type grepChan chan *grepResult
+type grepChan chan grepResult
 
 func (walk walkChan) grep(rxs []*regexp.Regexp, jobs int) (grepChan, error) {
 	out := make(grepChan)
@@ -117,28 +123,28 @@ func (walk walkChan) grep(rxs []*regexp.Regexp, jobs int) (grepChan, error) {
 
 		for w := range walk {
 			if w.err != nil {
-				out <- &grepResult{err: w.err}
+				out <- grepResult{err: w.err}
 				continue
 			}
 
 			// no regexp provided, everything matches
 			if len(rxs) == 0 {
-				out <- &grepResult{path: w.path}
+				out <- grepResult{path: w.path}
 				continue
 			}
 
 			sem <- 1
 			wg.Add(1)
 
-			go func(portPath string) {
+			go func(portRoot string) {
 				defer func() {
 					<-sem
 					wg.Done()
 				}()
 
-				f, err := ioutil.ReadFile(filepath.Join(portPath, "Makefile"))
+				f, err := ioutil.ReadFile(filepath.Join(portRoot, "Makefile"))
 				if err != nil {
-					out <- &grepResult{err: err}
+					out <- grepResult{err: err}
 					return
 				}
 				f = bytes.ReplaceAll(f, []byte("\\\n"), []byte(""))
@@ -152,10 +158,7 @@ func (walk walkChan) grep(rxs []*regexp.Regexp, jobs int) (grepChan, error) {
 				}
 
 				if matches != nil {
-					out <- &grepResult{
-						path:    portPath,
-						matches: matches,
-					}
+					out <- grepResult{path: portRoot, matches: matches}
 				}
 			}(w.path)
 		}

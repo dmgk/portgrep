@@ -10,10 +10,13 @@ const (
 	USES
 )
 
-func Compile(id int, s string) (*regexp.Regexp, error) {
-	f, ok := re[id]
+func Compile(kind int, s string, sre bool) (*regexp.Regexp, error) {
+	f, ok := re[kind]
 	if !ok {
-		return nil, fmt.Errorf("unknown regexp id: %d", id)
+		return nil, fmt.Errorf("unknown regexp kind: %d", kind)
+	}
+	if sre {
+		return regexp.Compile(fmt.Sprintf(f, s))
 	}
 	return regexp.Compile(fmt.Sprintf(f, regexp.QuoteMeta(s)))
 }

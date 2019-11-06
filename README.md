@@ -4,18 +4,20 @@
 #### Usage
 
 ```
-usage: portgrep <options>
+Usage: portgrep <options>
 
 Global options:
-  -R ROOT        ports tree root (default: /usr/ports)
-  -v             show version
+  -R path   ports tree root (default: /usr/ports)
+  -v        show version
 
 Search options:
-  -o             output origins only
-  -s             sort by origin
-  -m MAINTAINER  search by MAINTAINER
-  -u USES        search by USES
-  ```
+  -1        output origins in a single line (implies -o)
+  -o        output origins only
+  -s        sort results by origin
+  -x        treat query as a regular expression
+  -m query  search by MAINTAINER
+  -u query  search by USES
+```
 
 #### Performance
 
