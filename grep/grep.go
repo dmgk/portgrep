@@ -3,6 +3,7 @@ package grep
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -11,7 +12,23 @@ import (
 
 var Stop = errors.New("stop")
 
-type GrepFunc func(path string, matches [][][]byte, err error) error
+type Match struct {
+	Text []byte
+
+	// QuerySubmatch is a byte index pair identifying the query submatch in Text
+	QuerySubmatch []int
+
+	// QuerySubmatch is a byte index pair identifying the result submatch in Text
+	ResultSubmatch []int
+}
+
+func (m *Match) String() string {
+	return fmt.Sprintf("Match {Text: %q, QuerySubmatch:%v, ResultSubmatch:%v}", string(m.Text), m.QuerySubmatch, m.ResultSubmatch)
+}
+
+type Matches []*Match
+
+type GrepFunc func(path string, matches Matches, err error) error
 
 func Grep(root string, rxs []*regexp.Regexp, fn GrepFunc, jobs int) error {
 	walkPipe, err := walk(root, jobs)
@@ -106,7 +123,7 @@ func walk(root string, jobs int) (walkChan, error) {
 
 type grepResult struct {
 	path    string
-	matches [][][]byte
+	matches Matches
 	err     error
 }
 
@@ -147,14 +164,24 @@ func (walk walkChan) grep(rxs []*regexp.Regexp, jobs int) (grepChan, error) {
 					out <- grepResult{err: err}
 					return
 				}
-				f = bytes.ReplaceAll(f, []byte("\\\n"), []byte(""))
+				f = bytes.ReplaceAll(f, []byte{'\\', '\n'}, []byte{'\f'})
 
-				var matches [][][]byte
+				var matches Matches
 				for _, r := range rxs {
-					mm := r.FindSubmatch(f)
-					if mm != nil {
-						matches = append(matches, mm)
+					sm := r.FindSubmatchIndex(f)
+					if sm == nil {
+						return
 					}
+					if len(sm) != 6 {
+						out <- grepResult{err: fmt.Errorf("unexpected number of subexpressions: %v", r)}
+						return
+					}
+					m := &Match{
+						Text:           bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{'\f'}, []byte{'\\', '\n', '\t'}),
+						QuerySubmatch:  []int{sm[2] - sm[0], sm[3] - sm[0]},
+						ResultSubmatch: []int{sm[4] - sm[0], sm[5] - sm[0]},
+					}
+					matches = append(matches, m)
 				}
 
 				if matches != nil {

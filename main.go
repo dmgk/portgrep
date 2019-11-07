@@ -4,20 +4,21 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
+	"io"
 	"os"
 	"path"
 	"regexp"
 	"runtime"
 	"runtime/debug"
 	"sort"
-	"strings"
 
 	"github.com/dmgk/portgrep/grep"
+	"github.com/dmgk/portgrep/grep/formatter"
+	"github.com/mattn/go-colorable"
+	"github.com/mattn/go-isatty"
 )
 
 func main() {
-	flag.Parse()
-
 	if flag.NFlag() == 0 {
 		flag.Usage()
 		os.Exit(0)
@@ -43,29 +44,22 @@ func main() {
 }
 
 func runSorted() error {
-	rxs, err := regexps()
+	rxs, err := queries.compile()
 	if err != nil {
 		return err
 	}
 
-	prefix := flagPortsRoot + "/"
-
 	type r struct {
-		origin  string
-		matches [][][]byte
+		path    string
+		matches grep.Matches
 	}
 	var rr []*r
 
-	fn := func(path string, matches [][][]byte, err error) error {
+	fn := func(path string, matches grep.Matches, err error) error {
 		if err != nil {
 			return err
 		}
-
-		rr = append(rr, &r{
-			origin:  strings.TrimPrefix(path, prefix),
-			matches: matches,
-		})
-
+		rr = append(rr, &r{path, matches})
 		return nil
 	}
 
@@ -75,31 +69,12 @@ func runSorted() error {
 	}
 
 	sort.Slice(rr, func(i, j int) bool {
-		return rr[i].origin < rr[j].origin
+		return rr[i].path < rr[j].path
 	})
 
-	var needSep bool
-
 	for _, r := range rr {
-		if flagOneLine {
-			if needSep {
-				fmt.Print(" ")
-			}
-			fmt.Print(r.origin)
-			needSep = true
-			continue
-		}
-
-		if flagOriginOnly {
-			fmt.Println(r.origin)
-			continue
-		}
-
-		if r.matches != nil {
-			fmt.Printf("%s:\n", r.origin)
-			for _, m := range r.matches {
-				fmt.Printf("\t%s\n", string(m[0]))
-			}
+		if err := form.Format(r.path, r.matches); err != nil {
+			return err
 		}
 	}
 
@@ -107,82 +82,123 @@ func runSorted() error {
 }
 
 func runUnsorted() error {
-	rxs, err := regexps()
+	rxs, err := queries.compile()
 	if err != nil {
 		return err
 	}
 
-	prefix := flagPortsRoot + "/"
-	var needSep bool
-
-	fn := func(path string, matches [][][]byte, err error) error {
+	fn := func(path string, matches grep.Matches, err error) error {
 		if err != nil {
 			return err
 		}
-
-		if flagOneLine {
-			if needSep {
-				fmt.Print(" ")
-			}
-			fmt.Print(strings.TrimPrefix(path, prefix))
-			needSep = true
-			return nil
-		}
-
-		if flagOriginOnly {
-			fmt.Println(strings.TrimPrefix(path, prefix))
-			return nil
-		}
-
-		if matches != nil {
-			fmt.Printf("%s:\n", strings.TrimPrefix(path, prefix))
-			for _, m := range matches {
-				fmt.Printf("\t%s\n", string(m[0]))
-			}
-		}
-
-		return nil
+		return form.Format(path, matches)
 	}
 
 	return grep.Grep(flagPortsRoot, rxs, fn, runtime.NumCPU())
 }
 
-func regexps() ([]*regexp.Regexp, error) {
+var form formatter.Formatter
+
+func initFormatter() {
+	var w io.Writer = os.Stdout
+	flags := formatter.Fdefaults
+	term := isatty.IsTerminal(os.Stdout.Fd())
+
+	if flagColorMode == colorModeAlways || (term && flagColorMode == colorModeAuto) {
+		w = colorable.NewColorableStdout()
+		flags |= formatter.Fcolor
+	}
+
+	if flagOriginsSingleLine {
+		flags |= formatter.ForiginsSingleLine
+	}
+	if flagOriginOnly {
+		flags |= formatter.ForiginsOnly
+	}
+
+	form = formatter.NewText(w, flagPortsRoot, flags)
+}
+
+var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} <options>
+
+Global options:
+  -R path   ports tree root (default: {{.portsRoot}})
+  -C mode   colorized output mode: auto|never|always (default: {{.colorMode}})
+  -v        show version
+
+Formatting options:
+  -1        output origins in a single line (implies -o)
+  -o        output origins only
+  -s        sort results by origin
+
+Search options:
+  -x        treat query as a regular expression
+  -m query  search by MAINTAINER
+  -u query  search by USES
+`))
+
+const (
+	colorModeAuto   = "auto"
+	colorModeAlways = "always"
+	colorModeNever  = "never"
+)
+
+type queryFlag struct {
+	name string
+	kind int
+	val  string
+}
+
+type queryFlags []*queryFlag
+
+func (qf queryFlags) any() bool {
+	for _, q := range qf {
+		if q.val != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (qf queryFlags) addFlags() {
+	for _, q := range qf {
+		flag.StringVar(&q.val, q.name, "", "")
+	}
+}
+
+func (qf queryFlags) compile() ([]*regexp.Regexp, error) {
 	var res []*regexp.Regexp
-
-	if queryMaintainer != "" {
-		re, err := grep.Compile(grep.MAINTAINER, queryMaintainer, flagRegexp)
+	for _, q := range qf {
+		if q.val == "" {
+			continue
+		}
+		re, err := grep.Compile(q.kind, q.val, flagRegexp)
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, re)
 	}
-
-	if queryUses != "" {
-		re, err := grep.Compile(grep.USES, queryUses, flagRegexp)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, re)
-	}
-
 	return res, nil
 }
 
 var (
-	flagPortsRoot   = "/usr/ports"
-	flagVersion     bool
-	flagOneLine     bool
-	flagOriginOnly  bool
-	flagSort        bool
-	flagRegexp      bool
-	queryMaintainer string
-	queryUses       string
+	flagPortsRoot         = "/usr/ports"
+	flagColorMode         = "auto"
+	flagVersion           bool
+	flagOriginOnly        bool
+	flagOriginsSingleLine bool
+	flagSort              bool
+	flagRegexp            bool
+
+	queries = queryFlags{
+		{"m", grep.MAINTAINER, ""},
+		{"u", grep.USES, ""},
+	}
 
 	version = "devel"
 )
 
-func init() {
+func initFlags() {
 	// disable GC, this is short-running utility and performance is more
 	// important than memory consumpltion
 	debug.SetGCPercent(-1)
@@ -194,38 +210,47 @@ func init() {
 	}
 
 	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
+	flag.StringVar(&flagColorMode, "C", flagColorMode, "")
 	flag.BoolVar(&flagVersion, "v", false, "")
 
-	flag.BoolVar(&flagOneLine, "1", false, "")
 	flag.BoolVar(&flagOriginOnly, "o", false, "")
+	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
 	flag.BoolVar(&flagSort, "s", false, "")
 	flag.BoolVar(&flagRegexp, "x", false, "")
 
-	flag.StringVar(&queryMaintainer, "m", "", "")
-	flag.StringVar(&queryUses, "u", "", "")
+	queries.addFlags()
 
 	flag.Usage = func() {
 		err := usageTemplate.Execute(os.Stderr, map[string]string{
 			"basename":  basename,
 			"portsRoot": flagPortsRoot,
+			"colorMode": flagColorMode,
 		})
 		if err != nil {
 			panic(err)
 		}
 	}
+
+	flag.Parse()
+
+	if flagPortsRoot == "" {
+		fmt.Fprintln(os.Stderr, "ports tree root cannot be blank")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if flagColorMode != colorModeAuto && flagColorMode != colorModeAlways && flagColorMode != colorModeNever {
+		fmt.Fprintf(os.Stderr, "invalid color mode: %s\n", flagColorMode)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if !queries.any() {
+		flagOriginOnly = true
+	}
 }
 
-var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} <options>
-
-Global options:
-  -R path   ports tree root (default: {{.portsRoot}})
-  -v        show version
-
-Search options:
-  -1        output origins in a single line (implies -o)
-  -o        output origins only
-  -s        sort results by origin
-  -x        treat query as a regular expression
-  -m query  search by MAINTAINER
-  -u query  search by USES
-`))
+func init() {
+	initFlags()
+	initFormatter()
+}

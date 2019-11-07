@@ -1,6 +1,7 @@
 package grep
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -25,6 +26,7 @@ func TestMaintainer(t *testing.T) {
 
 	for i, x := range matches {
 		res := re.FindStringSubmatch(x)
+		fmt.Printf("====> res %#v\n", res)
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}

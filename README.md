@@ -9,12 +9,15 @@ Usage: portgrep <options>
 
 Global options:
   -R path   ports tree root (default: /usr/ports)
+  -C mode   colorized output mode: auto|never|always (default: auto)
   -v        show version
 
-Search options:
+Formatting options:
   -1        output origins in a single line (implies -o)
   -o        output origins only
   -s        sort results by origin
+
+Search options:
   -x        treat query as a regular expression
   -m query  search by MAINTAINER
   -u query  search by USES
