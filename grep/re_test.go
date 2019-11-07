@@ -78,7 +78,7 @@ func TestUses(t *testing.T) {
 		"USES=	go xorg",
 		"USES=	gmake go xorg",
 		"USES=	gmake go",
-		"_USES=	go",
+		"OPT_USES=	go",
 	}
 
 	nomatches := []string{
@@ -97,6 +97,39 @@ func TestUses(t *testing.T) {
 
 	for i, x := range matches {
 		res := re.FindStringSubmatch(x)
+		if res == nil {
+			t.Errorf("[matches #%d] expected to match %q", i, x)
+		}
+	}
+
+	for i, x := range nomatches {
+		res := re.FindStringSubmatch(x)
+		if res != nil {
+			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
+		}
+	}
+}
+
+func TestDepends(t *testing.T) {
+	matches := []string{
+		"BUILD_DEPENDS=bash:shells/bash",
+		"RUN_DEPENDS=	bash>0:shells/bash",
+		"OPT_DEPENDS=	/usr/local/bin/bash:shells/bash",
+	}
+
+	nomatches := []string{
+		"BUILD_DEPENDS=	bash-devel:/shells/bash-devel",
+		"NODEPENDS=		bash:/shells/bash",
+	}
+
+	re, err := Compile(DEPENDS, "bash", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range matches {
+		res := re.FindStringSubmatch(x)
+		fmt.Printf("====> res %#v\n", res)
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}

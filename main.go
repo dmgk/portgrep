@@ -12,8 +12,8 @@ import (
 	"runtime/debug"
 	"sort"
 
+	"github.com/dmgk/portgrep/formatter"
 	"github.com/dmgk/portgrep/grep"
-	"github.com/dmgk/portgrep/grep/formatter"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 )
@@ -122,19 +122,23 @@ func initFormatter() {
 var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} <options>
 
 Global options:
-  -R path   ports tree root (default: {{.portsRoot}})
-  -C mode   colorized output mode: auto|never|always (default: {{.colorMode}})
-  -v        show version
+  -R path    ports tree root (default: {{.portsRoot}})
+  -C mode    colorized output mode: auto|never|always (default: {{.colorMode}})
+  -v         show version
 
 Formatting options:
-  -1        output origins in a single line (implies -o)
-  -o        output origins only
-  -s        sort results by origin
+  -1         output origins in a single line (implies -o)
+  -o         output origins only
+  -s         sort results by origin
 
 Search options:
-  -x        treat query as a regular expression
-  -m query  search by MAINTAINER
-  -u query  search by USES
+  -x         treat query as a regular expression
+  -d  query  search by *_DEPENDS
+  -db query  search by BUILD_DEPENDS
+  -dl query  search by LIB_DEPENDS
+  -dr query  search by RUN_DEPENDS
+  -m  query  search by MAINTAINER
+  -u  query  search by USES
 `))
 
 const (
@@ -191,6 +195,10 @@ var (
 	flagRegexp            bool
 
 	queries = queryFlags{
+		{"d", grep.DEPENDS, ""},
+		{"db", grep.BUILD_DEPENDS, ""},
+		{"dl", grep.LIB_DEPENDS, ""},
+		{"dr", grep.RUN_DEPENDS, ""},
 		{"m", grep.MAINTAINER, ""},
 		{"u", grep.USES, ""},
 	}
