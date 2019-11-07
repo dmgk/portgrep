@@ -1,5 +1,6 @@
 `portgrep` is a fast parallel port search utility.
 
+[![Build Status](https://travis-ci.org/dmgk/portgrep.svg?branch=master)](https://travis-ci.org/dmgk/portgrep)
 
 #### Usage
 
