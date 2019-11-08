@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"regexp"
 	"runtime"
 	"runtime/debug"
 	"sort"
@@ -117,19 +116,23 @@ func initFormatter() {
 	}
 
 	form = formatter.NewText(w, flagPortsRoot, flags)
+	if !flagNoIndent {
+		form.SetIndent("\t")
+	}
 }
 
 var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} <options>
 
 Global options:
+  -C mode    colorized output mode: [auto|never|always] (default: {{.colorMode}})
   -R path    ports tree root (default: {{.portsRoot}})
-  -C mode    colorized output mode: auto|never|always (default: {{.colorMode}})
   -v         show version
 
-Formatting options:
+Format options:
   -1         output origins in a single line (implies -o)
   -o         output origins only
   -s         sort results by origin
+  -T         do not indent results
 
 Search options:
   -x         treat query as a regular expression
@@ -170,8 +173,8 @@ func (qf queryFlags) addFlags() {
 	}
 }
 
-func (qf queryFlags) compile() ([]*regexp.Regexp, error) {
-	var res []*regexp.Regexp
+func (qf queryFlags) compile() ([]*grep.Regexp, error) {
+	var res []*grep.Regexp
 	for _, q := range qf {
 		if q.val == "" {
 			continue
@@ -186,13 +189,16 @@ func (qf queryFlags) compile() ([]*regexp.Regexp, error) {
 }
 
 var (
-	flagPortsRoot         = "/usr/ports"
-	flagColorMode         = "auto"
-	flagVersion           bool
-	flagOriginOnly        bool
+	flagColorMode = "auto"
+	flagPortsRoot = "/usr/ports"
+	flagVersion   bool
+
 	flagOriginsSingleLine bool
+	flagOriginOnly        bool
 	flagSort              bool
-	flagRegexp            bool
+	flagNoIndent          bool
+
+	flagRegexp bool
 
 	queries = queryFlags{
 		{"d", grep.DEPENDS, ""},
@@ -217,13 +223,15 @@ func initFlags() {
 		flagPortsRoot = val
 	}
 
-	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
 	flag.StringVar(&flagColorMode, "C", flagColorMode, "")
+	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
 	flag.BoolVar(&flagVersion, "v", false, "")
 
-	flag.BoolVar(&flagOriginOnly, "o", false, "")
 	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
+	flag.BoolVar(&flagOriginOnly, "o", false, "")
 	flag.BoolVar(&flagSort, "s", false, "")
+	flag.BoolVar(&flagNoIndent, "T", false, "")
+
 	flag.BoolVar(&flagRegexp, "x", false, "")
 
 	queries.addFlags()

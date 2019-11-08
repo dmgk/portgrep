@@ -1,7 +1,6 @@
 package grep
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -19,21 +18,20 @@ func TestMaintainer(t *testing.T) {
 		"_MAINTAINER=	ports",
 	}
 
-	re, err := Compile(MAINTAINER, "ports@freeb", false)
+	r, err := Compile(MAINTAINER, "ports@freeb", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := re.FindStringSubmatch(x)
-		fmt.Printf("====> res %#v\n", res)
+		res := r.re.FindStringSubmatch(x)
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := re.FindStringSubmatch(x)
+		res := r.re.FindStringSubmatch(x)
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
@@ -51,20 +49,20 @@ func TestMaintainerRe(t *testing.T) {
 		"MAINTAINER=	dmgk@freebsd.org",
 	}
 
-	re, err := Compile(MAINTAINER, "p.*s@", true)
+	r, err := Compile(MAINTAINER, "p.*s@", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := re.FindStringSubmatch(x)
+		res := r.re.FindStringSubmatch(x)
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := re.FindStringSubmatch(x)
+		res := r.re.FindStringSubmatch(x)
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
@@ -90,20 +88,20 @@ func TestUses(t *testing.T) {
 		"XUSES=	go",
 	}
 
-	re, err := Compile(USES, "go", false)
+	r, err := Compile(USES, "go", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := re.FindStringSubmatch(x)
+		res := r.re.FindStringSubmatch(x)
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := re.FindStringSubmatch(x)
+		res := r.re.FindStringSubmatch(x)
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
@@ -112,31 +110,31 @@ func TestUses(t *testing.T) {
 
 func TestDepends(t *testing.T) {
 	matches := []string{
-		"BUILD_DEPENDS=bash:shells/bash",
-		"RUN_DEPENDS=	bash>0:shells/bash",
+		"BUILD_DEPENDS=	dash:shells/dash bash:shells/bash",
+		"RUN_DEPENDS=	bash>0:shells/bash dash:shells/dash",
 		"OPT_DEPENDS=	/usr/local/bin/bash:shells/bash",
 	}
 
 	nomatches := []string{
 		"BUILD_DEPENDS=	bash-devel:/shells/bash-devel",
-		"NODEPENDS=		bash:/shells/bash",
+		"BUILD_DEPENDS=	other-bash:/shells/other-bash",
+		"_DEPENDS=		bash:/shells/bash",
 	}
 
-	re, err := Compile(DEPENDS, "bash", false)
+	r, err := Compile(DEPENDS, "bash", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := re.FindStringSubmatch(x)
-		fmt.Printf("====> res %#v\n", res)
+		res := r.re.FindStringSubmatch(x)
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := re.FindStringSubmatch(x)
+		res := r.re.FindStringSubmatch(x)
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}

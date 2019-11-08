@@ -8,19 +8,24 @@
 Usage: portgrep <options>
 
 Global options:
-  -R path   ports tree root (default: /usr/ports)
-  -C mode   colorized output mode: auto|never|always (default: auto)
-  -v        show version
+  -C mode    colorized output mode: [auto|never|always] (default: auto)
+  -R path    ports tree root (default: /usr/ports)
+  -v         show version
 
-Formatting options:
-  -1        output origins in a single line (implies -o)
-  -o        output origins only
-  -s        sort results by origin
+Format options:
+  -1         output origins in a single line (implies -o)
+  -o         output origins only
+  -s         sort results by origin
+  -T         do not indent results
 
 Search options:
-  -x        treat query as a regular expression
-  -m query  search by MAINTAINER
-  -u query  search by USES
+  -x         treat query as a regular expression
+  -d  query  search by *_DEPENDS
+  -db query  search by BUILD_DEPENDS
+  -dl query  search by LIB_DEPENDS
+  -dr query  search by RUN_DEPENDS
+  -m  query  search by MAINTAINER
+  -u  query  search by USES
 ```
 
 #### Performance

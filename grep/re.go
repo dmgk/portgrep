@@ -14,22 +14,55 @@ const (
 	USES
 )
 
-func Compile(kind int, s string, sre bool) (*regexp.Regexp, error) {
-	f, ok := re[kind]
-	if !ok {
-		return nil, fmt.Errorf("unknown regexp kind: %d", kind)
-	}
-	if sre {
-		return regexp.Compile(fmt.Sprintf(f, s))
-	}
-	return regexp.Compile(fmt.Sprintf(f, regexp.QuoteMeta(s)))
+type Regexp struct {
+	re  *regexp.Regexp // compiled regexp
+	qsi int            // query subexpression index
+	rsi int            // result subexpression index
 }
 
+func Compile(kind int, s string, x bool) (*Regexp, error) {
+	f, ok := re[kind]
+	if !ok {
+		panic(fmt.Sprintf("unknown regexp kind: %d", kind))
+	}
+
+	if !x {
+		s = regexp.QuoteMeta(s)
+	}
+
+	re, err := regexp.Compile(fmt.Sprintf(f, s))
+	if err != nil {
+		return nil, err
+	}
+
+	res := &Regexp{re: re, qsi: -1, rsi: -1}
+
+	for i, n := range re.SubexpNames() {
+		if n == qsn {
+			res.qsi = i
+		}
+		if n == rsn {
+			res.rsi = i
+		}
+	}
+
+	if res.qsi < 0 || res.rsi < 0 {
+		panic(fmt.Sprintf("invalid query/result subexpressions: %s", re))
+	}
+
+	return res, nil
+}
+
+const (
+	qsn = "q" // query subexpression name
+	rsn = "r" // result subexpression name
+)
+
 var re = map[int]string{
-	BUILD_DEPENDS: `(?m)\b(BUILD_DEPENDS)=(?:.*\s)?(?:.+/)?(%s)(?:$|[\s:>].*$)`,
-	LIB_DEPENDS:   `(?m)\b(LIB_DEPENDS)=(?:.*\s)?(?:.+/)?(%s)(?:$|[\s:].*$)`,
-	RUN_DEPENDS:   `(?m)\b(RUN_DEPENDS)=(?:.*\s)?(?:.+/)?(%s)(?:$|[\s:>].*$)`,
-	DEPENDS:       `(?m)\b((?:[\w_]+_)?DEPENDS)=(?:.*\s)?(?:.+/)?(%s)(?:$|[\s:>].*$)`,
-	MAINTAINER:    `(?i)\b(MAINTAINER)=\s*(%s).*`,
-	USES:          `(?m)\b((?:[\w_]+_)?USES)=(?:.*\s)?(%s)(?:$|[\s:].*$)`,
+	BUILD_DEPENDS: `\b(?P<q>BUILD_DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s)[:>].*(\n|\z)`,
+	LIB_DEPENDS:   `\b(?P<q>LIB_DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s):.*(\n|\z)`,
+	RUN_DEPENDS:   `\b(?P<q>RUN_DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s)[:>].*(\n|\z)`,
+	DEPENDS:       `\b(?P<q>([\w_]+_)?DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s)[:>].*(\n|\z)`,
+	MAINTAINER:    `(?i)\b(?P<q>MAINTAINER)=\s*(?P<r>%s).*(\n|\z)`,
+	USES:          `\b(?P<q>([\w_]+_)?USES)=(.*?\s)?(?P<r>%s)((\n|\z)|[\s:].*(\n|\z))`,
 }

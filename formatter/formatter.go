@@ -1,6 +1,7 @@
 package formatter
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"strings"
@@ -20,12 +21,13 @@ const (
 
 var (
 	Cquery  = "\033[0;91m"
-	Cresult = "\033[0;92m"
+	Cresult = "\033[0;92m" // "\033[4m"
 )
 
 const creset = "\033[0m"
 
 type Formatter interface {
+	SetIndent(indent string)
 	Format(path string, matches grep.Matches) error
 }
 
@@ -36,6 +38,7 @@ type textFormatter struct {
 	root    string
 	flags   int
 	needSep bool
+	indent  string
 }
 
 func NewText(w io.Writer, root string, flags int) Formatter {
@@ -48,6 +51,10 @@ func NewText(w io.Writer, root string, flags int) Formatter {
 		f.root = f.root + "/"
 	}
 	return f
+}
+
+func (f *textFormatter) SetIndent(indent string) {
+	f.indent = indent
 }
 
 func (f *textFormatter) Format(path string, matches grep.Matches) error {
@@ -78,21 +85,34 @@ func (f *textFormatter) Format(path string, matches grep.Matches) error {
 		buf.WriteString(":\n")
 
 		for _, m := range matches {
-			buf.WriteByte('\t')
+			formatBuf := getBuf()
+			defer putBuf(formatBuf)
+
 			if f.flags&Fcolor != 0 {
-				buf.Write(m.Text[:m.QuerySubmatch[0]])
-				buf.Write([]byte(Cquery))
-				buf.Write(m.Text[m.QuerySubmatch[0]:m.QuerySubmatch[1]])
-				buf.Write([]byte(creset))
-				buf.Write(m.Text[m.QuerySubmatch[1]:m.ResultSubmatch[0]])
-				buf.Write([]byte(Cresult))
-				buf.Write(m.Text[m.ResultSubmatch[0]:m.ResultSubmatch[1]])
-				buf.Write([]byte(creset))
-				buf.Write(m.Text[m.ResultSubmatch[1]:])
+				formatBuf.Write(m.Text[:m.QuerySubmatch[0]])
+				formatBuf.Write([]byte(Cquery))
+				formatBuf.Write(m.Text[m.QuerySubmatch[0]:m.QuerySubmatch[1]])
+				formatBuf.Write([]byte(creset))
+				formatBuf.Write(m.Text[m.QuerySubmatch[1]:m.ResultSubmatch[0]])
+				formatBuf.Write([]byte(Cresult))
+				formatBuf.Write(m.Text[m.ResultSubmatch[0]:m.ResultSubmatch[1]])
+				formatBuf.Write([]byte(creset))
+				formatBuf.Write(m.Text[m.ResultSubmatch[1]:])
 			} else {
-				buf.Write(m.Text)
+				formatBuf.Write(m.Text)
 			}
-			buf.WriteByte('\n')
+
+			if f.indent != "" {
+				sc := bufio.NewScanner(formatBuf)
+				for sc.Scan() {
+					buf.WriteString(f.indent)
+					buf.WriteString(sc.Text())
+					buf.WriteByte('\n')
+				}
+			} else {
+				buf.Write(formatBuf.Bytes())
+				buf.WriteByte('\n')
+			}
 		}
 
 		return f.write(buf)

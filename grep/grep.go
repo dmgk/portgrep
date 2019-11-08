@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
 	"sync"
 )
 
@@ -30,7 +29,7 @@ type Matches []*Match
 
 type GrepFunc func(path string, matches Matches, err error) error
 
-func Grep(root string, rxs []*regexp.Regexp, fn GrepFunc, jobs int) error {
+func Grep(root string, rxs []*Regexp, fn GrepFunc, jobs int) error {
 	walkPipe, err := walk(root, jobs)
 	if err != nil {
 		return err
@@ -129,7 +128,7 @@ type grepResult struct {
 
 type grepChan chan grepResult
 
-func (walk walkChan) grep(rxs []*regexp.Regexp, jobs int) (grepChan, error) {
+func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 	out := make(grepChan)
 
 	go func() {
@@ -168,18 +167,21 @@ func (walk walkChan) grep(rxs []*regexp.Regexp, jobs int) (grepChan, error) {
 
 				var matches Matches
 				for _, r := range rxs {
-					sm := r.FindSubmatchIndex(f)
+					sm := r.re.FindSubmatchIndex(f)
 					if sm == nil {
 						return
 					}
-					if len(sm) != 6 {
+					// fmt.Printf("====>  %q\n", string(f))
+					// fmt.Printf("====>  %s\n", r.re)
+					if len(sm) <= r.rsi {
 						out <- grepResult{err: fmt.Errorf("unexpected number of subexpressions: %v", r)}
 						return
 					}
 					m := &Match{
-						Text:           bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{'\v', '\v'}, []byte{'\\', '\n', '\t'}),
-						QuerySubmatch:  []int{sm[2] - sm[0], sm[3] - sm[0]},
-						ResultSubmatch: []int{sm[4] - sm[0], sm[5] - sm[0]},
+						Text: bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{'\v', '\v'}, []byte{'\\', '\n'}),
+						// Text:           f[sm[0]:sm[1]],
+						QuerySubmatch:  []int{sm[2*r.qsi] - sm[0], sm[2*r.qsi+1] - sm[0]},
+						ResultSubmatch: []int{sm[2*r.rsi] - sm[0], sm[2*r.rsi+1] - sm[0]},
 					}
 					matches = append(matches, m)
 				}
