@@ -163,7 +163,7 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 					out <- grepResult{err: err}
 					return
 				}
-				f = bytes.ReplaceAll(f, []byte{'\\', '\n'}, []byte{'\v', '\v'})
+				f = bytes.ReplaceAll(f, []byte{'\\', '\n'}, []byte{0, 0})
 
 				var matches Matches
 				for _, r := range rxs {
@@ -178,7 +178,7 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 						return
 					}
 					m := &Match{
-						Text: bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{'\v', '\v'}, []byte{'\\', '\n'}),
+						Text: bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{0, 0}, []byte{'\\', '\n'}),
 						// Text:           f[sm[0]:sm[1]],
 						QuerySubmatch:  []int{sm[2*r.qsi] - sm[0], sm[2*r.qsi+1] - sm[0]},
 						ResultSubmatch: []int{sm[2*r.rsi] - sm[0], sm[2*r.rsi+1] - sm[0]},

@@ -59,10 +59,10 @@ const (
 )
 
 var re = map[int]string{
-	BUILD_DEPENDS: `\b(?P<q>BUILD_DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s)[:>].*(\n|\z)`,
-	LIB_DEPENDS:   `\b(?P<q>LIB_DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s):.*(\n|\z)`,
-	RUN_DEPENDS:   `\b(?P<q>RUN_DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s)[:>].*(\n|\z)`,
-	DEPENDS:       `\b(?P<q>([\w_]+_)?DEPENDS)=(.*?\s)?(.*?/)?(?P<r>%s)[:>].*(\n|\z)`,
-	MAINTAINER:    `(?i)\b(?P<q>MAINTAINER)=\s*(?P<r>%s).*(\n|\z)`,
-	USES:          `\b(?P<q>([\w_]+_)?USES)=(.*?\s)?(?P<r>%s)((\n|\z)|[\s:].*(\n|\z))`,
+	BUILD_DEPENDS: `\b(?P<q>BUILD_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
+	LIB_DEPENDS:   `\b(?P<q>LIB_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:\.].*(\n|\z)`,
+	RUN_DEPENDS:   `\b(?P<q>RUN_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
+	DEPENDS:       `\b(?P<q>(\w+_)?DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
+	MAINTAINER:    `(?i)\b(?P<q>MAINTAINER)\s*=\s*(?P<r>%s).*(\n|\z)`,
+	USES:          `\b(?P<q>([\w_]+_)?USES)\s*(=|=.*?[\s])(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))`,
 }
