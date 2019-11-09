@@ -28,7 +28,7 @@ const creset = "\033[0m"
 
 type Formatter interface {
 	SetIndent(indent string)
-	Format(path string, matches grep.Matches) error
+	Format(path string, matches grep.Results) error
 }
 
 type textFormatter struct {
@@ -57,7 +57,7 @@ func (f *textFormatter) SetIndent(indent string) {
 	f.indent = indent
 }
 
-func (f *textFormatter) Format(path string, matches grep.Matches) error {
+func (f *textFormatter) Format(path string, results grep.Results) error {
 	buf := getBuf()
 	defer putBuf(buf)
 
@@ -80,11 +80,11 @@ func (f *textFormatter) Format(path string, matches grep.Matches) error {
 		return f.write(buf)
 	}
 
-	if matches != nil {
+	if results != nil {
 		buf.WriteString(path)
 		buf.WriteString(":\n")
 
-		for _, m := range matches {
+		for _, m := range results {
 			formatBuf := getBuf()
 			defer putBuf(formatBuf)
 
@@ -93,11 +93,13 @@ func (f *textFormatter) Format(path string, matches grep.Matches) error {
 				formatBuf.Write([]byte(Cquery))
 				formatBuf.Write(m.Text[m.QuerySubmatch[0]:m.QuerySubmatch[1]])
 				formatBuf.Write([]byte(creset))
-				formatBuf.Write(m.Text[m.QuerySubmatch[1]:m.ResultSubmatch[0]])
-				formatBuf.Write([]byte(Cresult))
-				formatBuf.Write(m.Text[m.ResultSubmatch[0]:m.ResultSubmatch[1]])
-				formatBuf.Write([]byte(creset))
-				formatBuf.Write(m.Text[m.ResultSubmatch[1]:])
+				if m.ResultSubmatch != nil {
+					formatBuf.Write(m.Text[m.QuerySubmatch[1]:m.ResultSubmatch[0]])
+					formatBuf.Write([]byte(Cresult))
+					formatBuf.Write(m.Text[m.ResultSubmatch[0]:m.ResultSubmatch[1]])
+					formatBuf.Write([]byte(creset))
+					formatBuf.Write(m.Text[m.ResultSubmatch[1]:])
+				}
 			} else {
 				formatBuf.Write(m.Text)
 			}

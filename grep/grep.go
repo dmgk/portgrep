@@ -11,7 +11,7 @@ import (
 
 var Stop = errors.New("stop")
 
-type Match struct {
+type Result struct {
 	Text []byte
 
 	// QuerySubmatch is a byte index pair identifying the query submatch in Text
@@ -21,15 +21,15 @@ type Match struct {
 	ResultSubmatch []int
 }
 
-func (m *Match) String() string {
-	return fmt.Sprintf("Match {Text: %q, QuerySubmatch:%v, ResultSubmatch:%v}", string(m.Text), m.QuerySubmatch, m.ResultSubmatch)
+func (r *Result) String() string {
+	return fmt.Sprintf("Result {Text: %q, QuerySubmatch:%v, ResultSubmatch:%v}", string(r.Text), r.QuerySubmatch, r.ResultSubmatch)
 }
 
-type Matches []*Match
+type Results []*Result
 
-type GrepFunc func(path string, matches Matches, err error) error
+type GrepFunc func(path string, res Results, err error) error
 
-func Grep(root string, rxs []*Regexp, fn GrepFunc, jobs int) error {
+func Grep(root string, rxs []Regexp, fn GrepFunc, jobs int) error {
 	walkPipe, err := walk(root, jobs)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func Grep(root string, rxs []*Regexp, fn GrepFunc, jobs int) error {
 	}
 
 	for x := range grepPipe {
-		if err := fn(x.path, x.matches, x.err); err != nil {
+		if err := fn(x.path, x.results, x.err); err != nil {
 			if err == Stop {
 				break
 			}
@@ -54,10 +54,12 @@ func Grep(root string, rxs []*Regexp, fn GrepFunc, jobs int) error {
 var ignores = map[string]struct{}{
 	".svn":      struct{}{},
 	".git":      struct{}{},
-	"distfiles": struct{}{},
 	"Mk":        struct{}{},
+	"Keywords":  struct{}{},
 	"Templates": struct{}{},
 	"Tools":     struct{}{},
+	"distfiles": struct{}{},
+	"packages":  struct{}{},
 }
 
 type walkResult struct {
@@ -122,13 +124,13 @@ func walk(root string, jobs int) (walkChan, error) {
 
 type grepResult struct {
 	path    string
-	matches Matches
+	results Results
 	err     error
 }
 
 type grepChan chan grepResult
 
-func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
+func (walk walkChan) grep(rxs []Regexp, jobs int) (grepChan, error) {
 	out := make(grepChan)
 
 	go func() {
@@ -165,29 +167,38 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 				}
 				f = bytes.ReplaceAll(f, []byte{'\\', '\n'}, []byte{0, 0})
 
-				var matches Matches
+				var res Results
 				for _, r := range rxs {
-					sm := r.re.FindSubmatchIndex(f)
-					if sm == nil {
+					m, err := r.Match(f)
+					if err != nil {
+						out <- grepResult{err: err}
 						return
 					}
-					// fmt.Printf("====>  %q\n", string(f))
-					// fmt.Printf("====>  %s\n", r.re)
-					if len(sm) <= r.rsi {
-						out <- grepResult{err: fmt.Errorf("unexpected number of subexpressions: %v", r)}
+					if m == nil {
 						return
 					}
-					m := &Match{
-						Text: bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{0, 0}, []byte{'\\', '\n'}),
-						// Text:           f[sm[0]:sm[1]],
-						QuerySubmatch:  []int{sm[2*r.qsi] - sm[0], sm[2*r.qsi+1] - sm[0]},
-						ResultSubmatch: []int{sm[2*r.rsi] - sm[0], sm[2*r.rsi+1] - sm[0]},
-					}
-					matches = append(matches, m)
+					res = append(res, m)
+					// sm := r.re.FindSubmatchIndex(f)
+					// if sm == nil {
+					// 	return
+					// }
+					// // fmt.Printf("====>  %q\n", string(f))
+					// // fmt.Printf("====>  %s\n", r.re)
+					// if len(sm) <= r.rsi {
+					// 	out <- grepResult{err: fmt.Errorf("unexpected number of subexpressions: %v", r)}
+					// 	return
+					// }
+					// m := &Match{
+					// 	Text: bytes.ReplaceAll(f[sm[0]:sm[1]], []byte{0, 0}, []byte{'\\', '\n'}),
+					// 	// Text:           f[sm[0]:sm[1]],
+					// 	QuerySubmatch:  []int{sm[2*r.qsi] - sm[0], sm[2*r.qsi+1] - sm[0]},
+					// 	ResultSubmatch: []int{sm[2*r.rsi] - sm[0], sm[2*r.rsi+1] - sm[0]},
+					// }
+					// matches = append(matches, m)
 				}
 
-				if matches != nil {
-					out <- grepResult{path: portRoot, matches: matches}
+				if res != nil {
+					out <- grepResult{path: portRoot, results: res}
 				}
 			}(w.path)
 		}
