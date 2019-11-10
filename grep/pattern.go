@@ -14,9 +14,9 @@ type Pattern interface {
 	register()
 }
 
-type ps []Pattern
+type patternSlice []Pattern
 
-func (s ps) Empty() bool {
+func (s patternSlice) Empty() bool {
 	for _, p := range s {
 		if !p.Empty() {
 			return false
@@ -25,7 +25,7 @@ func (s ps) Empty() bool {
 	return true
 }
 
-func (s ps) Compile(isRegexp bool) ([]Regexp, error) {
+func (s patternSlice) Compile(isRegexp bool) ([]Regexp, error) {
 	var res []Regexp
 	for _, p := range s {
 		re, err := p.Compile(isRegexp)
@@ -39,7 +39,7 @@ func (s ps) Compile(isRegexp bool) ([]Regexp, error) {
 	return res, nil
 }
 
-func (s ps) register() {
+func (s patternSlice) register() {
 	for _, p := range s {
 		p.register()
 	}
@@ -188,54 +188,65 @@ func (r *boolRegexp) Match(text []byte) (*Result, error) {
 	}, nil
 }
 
-var Patterns = ps{
-	&boolPattern{
+var (
+	broken = &boolPattern{
 		flag: "b",
 		desc: "search only ports marked BROKEN/IGNORE",
 		pat:  `\b(?P<q>BROKEN(_[^=])?)\s*=(?P<r>.*)(\n|\z)`,
-	},
-	&stringPattern{
+	}
+	depends = &stringPattern{
 		flag: "d",
 		desc: "search by *_DEPENDS",
 		pat:  `\b(?P<q>(\w+_)?DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
 		val:  "",
-	},
-	&stringPattern{
+	}
+	buildDepends = &stringPattern{
 		flag: "db",
 		desc: "search by BUILD_DEPENDS",
 		pat:  `\b(?P<q>BUILD_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
 		val:  "",
-	},
-	&stringPattern{
+	}
+	libDepends = &stringPattern{
 		flag: "dl",
 		desc: "search by LIB_DEPENDS",
 		pat:  `\b(?P<q>LIB_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:\.].*(\n|\z)`,
 		val:  "",
-	},
-	&stringPattern{
+	}
+	runDepends = &stringPattern{
 		flag: "dr",
 		desc: "search by RUN_DEPENDS",
 		pat:  `\b(?P<q>RUN_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
 		val:  "",
-	},
-	&stringPattern{
+	}
+	onlyForArchs = &stringPattern{
 		flag: "oa",
 		desc: "search by ONLY_FOR_ARCHS",
 		pat:  `\b(?P<q>ONLY_FOR_ARCHS)\s*(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))`,
 		val:  "",
-	},
-	&stringPattern{
+	}
+	maintainer = &stringPattern{
 		flag: "m",
 		desc: "search by MAINTAINER",
 		pat:  `(?i)\b(?P<q>MAINTAINER)\s*=\s*(?P<r>%s).*(\n|\z)`,
 		val:  "",
-	},
-	&stringPattern{
+	}
+	uses = &stringPattern{
 		flag: "u",
 		desc: "search by USES",
 		pat:  `\b(?P<q>([\w_]+_)?USES)\s*(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))`,
 		val:  "",
-	},
+	}
+)
+
+var Patterns = patternSlice{
+	broken,
+	depends,
+	buildDepends,
+	libDepends,
+	runDepends,
+	onlyForArchs,
+	maintainer,
+	uses,
 }
 
 func init() {

@@ -18,20 +18,27 @@ func TestMaintainer(t *testing.T) {
 		"_MAINTAINER=	ports",
 	}
 
-	r, err := Compile(MAINTAINER, "ports@freeb", false)
+	maintainer.val = "ports@"
+	r, err := maintainer.Compile(false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
@@ -49,20 +56,27 @@ func TestMaintainerRe(t *testing.T) {
 		"MAINTAINER=	dmgk@freebsd.org",
 	}
 
-	r, err := Compile(MAINTAINER, "p.*s@", true)
+	maintainer.val = "p.*s@"
+	r, err := maintainer.Compile(true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
@@ -88,20 +102,27 @@ func TestUses(t *testing.T) {
 		"XUSES=	go",
 	}
 
-	r, err := Compile(USES, "go", false)
+	uses.val = "go"
+	r, err := uses.Compile(true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
@@ -121,20 +142,27 @@ func TestDepends(t *testing.T) {
 		"_DEPENDS=		bash:/shells/bash",
 	}
 
-	r, err := Compile(DEPENDS, "bash", false)
+	depends.val = "bash"
+	r, err := depends.Compile(true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, x := range matches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res == nil {
 			t.Errorf("[matches #%d] expected to match %q", i, x)
 		}
 	}
 
 	for i, x := range nomatches {
-		res := r.re.FindStringSubmatch(x)
+		res, err := r.Match([]byte(x))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res != nil {
 			t.Errorf("[nomatches #%d] expected not to match %q, got %#v", i, x, res)
 		}
