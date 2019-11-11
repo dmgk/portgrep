@@ -113,7 +113,6 @@ func (f *textFormatter) Format(path string, results grep.Results) error {
 				}
 			} else {
 				buf.Write(formatBuf.Bytes())
-				buf.WriteByte('\n')
 			}
 		}
 

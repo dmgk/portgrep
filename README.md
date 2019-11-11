@@ -12,7 +12,7 @@ Global options:
   -R path    ports tree root (default: /usr/ports)
   -v         show version
 
-Format options:
+Formatting options:
   -1         output origins in a single line (implies -o)
   -o         output origins only
   -s         sort results by origin
@@ -20,10 +20,12 @@ Format options:
 
 Search options:
   -x         treat query as a regular expression
+  -b         search only ports marked BROKEN
   -d  query  search by *_DEPENDS
   -db query  search by BUILD_DEPENDS
   -dl query  search by LIB_DEPENDS
   -dr query  search by RUN_DEPENDS
+  -oa query  search by ONLY_FOR_ARCHS
   -m  query  search by MAINTAINER
   -u  query  search by USES
 ```

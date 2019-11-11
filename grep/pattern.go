@@ -6,43 +6,33 @@ import (
 	"regexp"
 )
 
+type Regexp struct {
+	re  *regexp.Regexp // compiled regexp
+	qsi int            // query subexpression index
+	rsi int            // result subexpression index
+}
+
+func (r *Regexp) Match(text []byte) (*Result, error) {
+	smi := r.re.FindSubmatchIndex(text)
+	if smi == nil {
+		return nil, nil
+	}
+	if len(smi) <= r.rsi {
+		return nil, fmt.Errorf("unexpected number of subexpressions %d in %v", len(smi), r)
+	}
+	return &Result{
+		Text:           text[smi[0]:smi[1]],
+		QuerySubmatch:  []int{smi[2*r.qsi] - smi[0], smi[2*r.qsi+1] - smi[0]},
+		ResultSubmatch: []int{smi[2*r.rsi] - smi[0], smi[2*r.rsi+1] - smi[0]},
+	}, nil
+}
+
 type Pattern interface {
 	Description() string
 	Empty() bool
-	Compile(isRegexp bool) (Regexp, error)
+	Compile(isRegexp bool) (*Regexp, error)
 
 	register()
-}
-
-type patternSlice []Pattern
-
-func (s patternSlice) Empty() bool {
-	for _, p := range s {
-		if !p.Empty() {
-			return false
-		}
-	}
-	return true
-}
-
-func (s patternSlice) Compile(isRegexp bool) ([]Regexp, error) {
-	var res []Regexp
-	for _, p := range s {
-		re, err := p.Compile(isRegexp)
-		if err != nil {
-			return nil, err
-		}
-		if re != nil {
-			res = append(res, re)
-		}
-	}
-	return res, nil
-}
-
-func (s patternSlice) register() {
-	for _, p := range s {
-		p.register()
-	}
 }
 
 const (
@@ -88,7 +78,7 @@ func (p *stringPattern) Empty() bool {
 	return p.val == ""
 }
 
-func (p *stringPattern) Compile(isRegexp bool) (Regexp, error) {
+func (p *stringPattern) Compile(isRegexp bool) (*Regexp, error) {
 	if p.Empty() {
 		return nil, nil
 	}
@@ -103,7 +93,7 @@ func (p *stringPattern) Compile(isRegexp bool) (Regexp, error) {
 		return nil, err
 	}
 
-	return &stringRegexp{re, qsi, rsi}, nil
+	return &Regexp{re, qsi, rsi}, nil
 }
 
 func (p *stringPattern) register() {
@@ -125,7 +115,7 @@ func (p *boolPattern) Empty() bool {
 	return !p.val
 }
 
-func (p *boolPattern) Compile(isRegexp bool) (Regexp, error) {
+func (p *boolPattern) Compile( /* unused */ bool) (*Regexp, error) {
 	if p.Empty() {
 		return nil, nil
 	}
@@ -135,64 +125,49 @@ func (p *boolPattern) Compile(isRegexp bool) (Regexp, error) {
 		return nil, err
 	}
 
-	return &boolRegexp{re, qsi, rsi}, nil
+	return &Regexp{re, qsi, rsi}, nil
 }
 
 func (p *boolPattern) register() {
 	flag.BoolVar(&p.val, p.flag, false, p.desc)
 }
 
-type Regexp interface {
-	Match(text []byte) (*Result, error)
+type patternSlice []Pattern
+
+func (s patternSlice) Empty() bool {
+	for _, p := range s {
+		if !p.Empty() {
+			return false
+		}
+	}
+	return true
 }
 
-type stringRegexp struct {
-	re  *regexp.Regexp // compiled regexp
-	qsi int            // query subexpression index
-	rsi int            // result subexpression index
+func (s patternSlice) Compile(isRegexp bool) ([]*Regexp, error) {
+	var res []*Regexp
+	for _, p := range s {
+		re, err := p.Compile(isRegexp)
+		if err != nil {
+			return nil, err
+		}
+		if re != nil {
+			res = append(res, re)
+		}
+	}
+	return res, nil
 }
 
-func (r *stringRegexp) Match(text []byte) (*Result, error) {
-	smi := r.re.FindSubmatchIndex(text)
-	if smi == nil {
-		return nil, nil
+func (s patternSlice) register() {
+	for _, p := range s {
+		p.register()
 	}
-	if len(smi) <= r.rsi {
-		return nil, fmt.Errorf("unexpected number of subexpressions %d in %v", len(smi), r)
-	}
-	return &Result{
-		Text:           text[smi[0]:smi[1]],
-		QuerySubmatch:  []int{smi[2*r.qsi] - smi[0], smi[2*r.qsi+1] - smi[0]},
-		ResultSubmatch: []int{smi[2*r.rsi] - smi[0], smi[2*r.rsi+1] - smi[0]},
-	}, nil
-}
-
-type boolRegexp struct {
-	re  *regexp.Regexp // compiled regexp
-	qsi int            // query subexpression index
-	rsi int            // result subexpression index
-}
-
-func (r *boolRegexp) Match(text []byte) (*Result, error) {
-	smi := r.re.FindSubmatchIndex(text)
-	if smi == nil {
-		return nil, nil
-	}
-	if len(smi) <= r.rsi {
-		return nil, fmt.Errorf("unexpected number of subexpressions %d in %v", len(smi), r)
-	}
-	return &Result{
-		Text:           text[smi[0]:smi[1]],
-		QuerySubmatch:  []int{smi[2*r.qsi] - smi[0], smi[2*r.qsi+1] - smi[0]},
-		ResultSubmatch: []int{smi[2*r.rsi] - smi[0], smi[2*r.rsi+1] - smi[0]},
-	}, nil
 }
 
 var (
 	broken = &boolPattern{
 		flag: "b",
-		desc: "search only ports marked BROKEN/IGNORE",
-		pat:  `\b(?P<q>BROKEN(_[^=])?)\s*=(?P<r>.*)(\n|\z)`,
+		desc: "search only ports marked BROKEN",
+		pat:  `\b(?P<q>BROKEN(_[^=]+)?)\s*=(?P<r>.*)(\n|\z)`,
 	}
 	depends = &stringPattern{
 		flag: "d",
