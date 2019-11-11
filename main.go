@@ -13,7 +13,6 @@ import (
 
 	"github.com/dmgk/portgrep/formatter"
 	"github.com/dmgk/portgrep/grep"
-	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 )
 
@@ -196,7 +195,6 @@ func initFormatter() {
 	term := isatty.IsTerminal(os.Stdout.Fd())
 
 	if flagColorMode == colorModeAlways || (term && flagColorMode == colorModeAuto) {
-		w = colorable.NewColorableStdout()
 		flags |= formatter.Fcolor
 	}
 
