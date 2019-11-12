@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 )
@@ -12,6 +13,7 @@ import (
 var Stop = errors.New("stop")
 
 type Result struct {
+	// Text holds the match as a byte slice
 	Text []byte
 
 	// QuerySubmatch is a byte index pair identifying the query submatch in Text
@@ -160,16 +162,18 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 					wg.Done()
 				}()
 
-				f, err := ioutil.ReadFile(filepath.Join(portRoot, "Makefile"))
+				buf, err := readFile(filepath.Join(portRoot, "Makefile"))
 				if err != nil {
 					out <- grepResult{err: err}
 					return
 				}
-				f = bytes.ReplaceAll(f, []byte{'\\', '\n'}, []byte{0, 0})
+				defer bufPut(buf)
+
+				b := bytes.ReplaceAll(buf.Bytes(), []byte{'\\', '\n'}, []byte{0, 0})
 
 				var res Results
 				for _, r := range rxs {
-					m, err := r.Match(f)
+					m, err := r.Match(b)
 					if err != nil {
 						out <- grepResult{err: err}
 						return
@@ -191,4 +195,40 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 	}()
 
 	return out, nil
+}
+
+func readFile(filename string) (*bytes.Buffer, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bufGet()
+	buf.Grow(int(fi.Size()) + bytes.MinRead)
+	_, err = buf.ReadFrom(f)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
+func bufGet() *bytes.Buffer {
+	return bufPool.Get().(*bytes.Buffer)
+}
+
+func bufPut(b *bytes.Buffer) {
+	b.Reset()
+	bufPool.Put(b)
 }
