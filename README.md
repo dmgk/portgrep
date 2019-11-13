@@ -35,7 +35,9 @@ Search options:
   -u  query  search by USES
 ```
 
-Example: find all broken Go ports:
+##### Examples:
+
+Find broken Go ports:
 
 ```sh
 $ portgrep -u go -b
@@ -55,7 +57,20 @@ devel/grumpy:
         BROKEN_i386= constant 2147762812 overflows int
         USES=  gmake go:no_targets,run python:2.7 shebangfix
 ...
- ```
+```
+
+Find ports depending on `botan2`:
+
+```sh
+$ portgrep -d botan2
+editors/encryptpad:
+        LIB_DEPENDS=    libbotan-2.so:security/botan2
+sysutils/daggy:
+        LIB_DEPENDS=    libbotan-2.so:security/botan2 \
+                        libyaml-cpp.so:devel/yaml-cpp
+devel/qca:
+        BOTAN_LIB_DEPENDS=      libbotan-2.so:security/botan2
+```
 
 #### Performance
 

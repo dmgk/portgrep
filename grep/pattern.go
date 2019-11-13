@@ -172,25 +172,25 @@ var (
 	depends = &stringPattern{
 		flag: "d",
 		desc: "search by *_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
+		pat:  `\b(?P<q>(\w+_)?DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
 	buildDepends = &stringPattern{
 		flag: "db",
 		desc: "search by BUILD_DEPENDS",
-		pat:  `\b(?P<q>BUILD_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
+		pat:  `\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
 	libDepends = &stringPattern{
 		flag: "dl",
 		desc: "search by LIB_DEPENDS",
-		pat:  `\b(?P<q>LIB_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:\.].*(\n|\z)`,
+		pat:  `\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))`,
 		val:  "",
 	}
 	runDepends = &stringPattern{
 		flag: "dr",
 		desc: "search by RUN_DEPENDS",
-		pat:  `\b(?P<q>RUN_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)[\s@:>\.].*(\n|\z)`,
+		pat:  `\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
 	onlyForArchs = &stringPattern{
