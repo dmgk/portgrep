@@ -205,6 +205,12 @@ var (
 		pat:  `(?i)\b(?P<q>MAINTAINER)\s*=\s*(?P<r>%s).*(\n|\z)`,
 		val:  "",
 	}
+	portname = &stringPattern{
+		flag: "n",
+		desc: "search by PORTNAME",
+		pat:  `(?i)\b(?P<q>PORTNAME)\s*=\s*(?P<r>%s).*(\n|\z)`,
+		val:  "",
+	}
 	uses = &stringPattern{
 		flag: "u",
 		desc: "search by USES",
@@ -221,6 +227,7 @@ var Patterns = patternSlice{
 	runDepends,
 	onlyForArchs,
 	maintainer,
+	portname,
 	uses,
 }
 

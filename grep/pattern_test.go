@@ -156,6 +156,23 @@ func TestMaintainer(t *testing.T) {
 	testStringPattern(t, maintainer, "ports@", false, matches, nomatches)
 }
 
+func TestPortname(t *testing.T) {
+	matches := []string{
+		"PORTNAME=	modules2tuple",
+		"PORTNAME=	modules",
+		"PORTNAME=	modules-blah",
+		" PORTNAME=modules",
+	}
+
+	nomatches := []string{
+		"PORTNAME=	pam-modules",
+		"PORTNAME=	-modules",
+		"XPORTNAME=	modules",
+	}
+
+	testStringPattern(t, portname, "modules", false, matches, nomatches)
+}
+
 func TestMaintainerRe(t *testing.T) {
 	matches := []string{
 		"MAINTAINER=	ports@freebsd.org",
