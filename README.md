@@ -9,11 +9,12 @@
 #### Usage
 
 ```
-Usage: portgrep <options>
+Usage: portgrep [options] [regexp ...]
 
-Global options:
+Options:
   -C mode    colorized output mode: [auto|never|always] (default: auto)
-  -R path    ports tree root (default: /usr/ports)
+  -R path    ports tree root (default: /home/dg/ports/head)
+  -x         treat query as a regular expression
   -v         show version
 
 Formatting options:
@@ -22,8 +23,7 @@ Formatting options:
   -s         sort results by origin
   -T         do not indent results
 
-Search options:
-  -x         treat query as a regular expression
+Predefined searches:
   -b         search only ports marked BROKEN
   -d  query  search by *_DEPENDS
   -db query  search by BUILD_DEPENDS
@@ -72,9 +72,31 @@ devel/qca:
         BOTAN_LIB_DEPENDS=      libbotan-2.so:security/botan2
 ```
 
+Search by an arbitrary regex:
+
+```sh
+$ portgrep 'REINPLACE_CMD.*\s-i'
+www/yarn:
+
+                @${REINPLACE_CMD} -i '' \
+                        -e 's|"installationMethod": "tar"|"installationMethod": "pkg"|g' \
+                        ${WRKSRC}/package.json
+
+devel/py-os-brick:
+
+                @${GREP} -Rl -Ee '${MY_REGEX}' --null \
+                        ${WRKSRC}/etc ${WRKSRC}/os_brick | \
+                                ${XARGS} -0 ${REINPLACE_CMD} -i '' -Ee \
+                                        "s,${MY_REGEX},${PREFIX}\1,g"
+
+devel/sfml1:
+
+                @${FIND} ${STAGEDIR}${PREFIX}/include/SFML -name "*.hpp" -exec ${REINPLACE_CMD} -i '' -e '/#include/ s|SFML|&1|' {} \;
+```
+
 #### Performance
 
-```shell
+```sh
 $ time (find /usr/ports -name Makefile | xargs grep "MAINTAINER=.*ports@" >/dev/null)
 
 real    0m1.045s
@@ -82,7 +104,7 @@ user    0m0.237s
 sys     0m1.076s
 ```
 
-```shell
+```sh
 $ time (./portgrep -m ports@ >/dev/null)
 
 real    0m0.395s

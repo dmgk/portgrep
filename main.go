@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	if flag.NFlag() == 0 {
+	if flag.NFlag() == 0 && flag.NArg() == 0 {
 		flag.Usage()
 		os.Exit(0)
 	}
@@ -30,9 +30,9 @@ func main() {
 	var err error
 
 	if flagSort {
-		err = runSorted()
+		err = runSorted(flag.Args()...)
 	} else {
-		err = runUnsorted()
+		err = runUnsorted(flag.Args()...)
 	}
 
 	if err != nil {
@@ -41,8 +41,8 @@ func main() {
 	}
 }
 
-func runUnsorted() error {
-	rxs, err := grep.Patterns.Compile(flagRegexp)
+func runUnsorted(custom ...string) error {
+	rxs, err := grep.Patterns.Compile(flagRegexp, custom...)
 	if err != nil {
 		return err
 	}
@@ -57,8 +57,8 @@ func runUnsorted() error {
 	return grep.Grep(flagPortsRoot, rxs, fn, runtime.NumCPU())
 }
 
-func runSorted() error {
-	rxs, err := grep.Patterns.Compile(flagRegexp)
+func runSorted(custom ...string) error {
+	rxs, err := grep.Patterns.Compile(flagRegexp, custom...)
 	if err != nil {
 		return err
 	}
@@ -110,11 +110,12 @@ var (
 
 var version = "devel"
 
-var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} <options>
+var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} [options] [regexp ...]
 
-Global options:
+Options:
   -C mode    colorized output mode: [auto|never|always] (default: {{.colorMode}})
   -R path    ports tree root (default: {{.portsRoot}})
+  -x         treat query as a regular expression
   -v         show version
 
 Formatting options:
@@ -123,8 +124,7 @@ Formatting options:
   -s         sort results by origin
   -T         do not indent results
 
-Search options:
-  -x         treat query as a regular expression{{range .patterns}}
+Predefined searches:{{range .patterns}}
   {{.Description}}{{end}}
 `))
 
@@ -176,7 +176,8 @@ func initFlags() {
 		os.Exit(1)
 	}
 
-	if grep.Patterns.Empty() {
+	// neither predefined query or custom regexp provided
+	if grep.Patterns.Empty() && flag.NArg() == 0 {
 		flagOriginOnly = true
 	}
 }

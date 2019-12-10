@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 )
 
 var Stop = errors.New("stop")
@@ -164,6 +165,10 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 
 				buf, err := readFile(filepath.Join(portRoot, "Makefile"))
 				if err != nil {
+					if err, ok := err.(*os.PathError); ok && err.Err == syscall.ENOENT {
+						// Makefile dosn't exists at path... odd, but okay
+						return
+					}
 					out <- grepResult{err: err}
 					return
 				}

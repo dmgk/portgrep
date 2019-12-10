@@ -20,11 +20,16 @@ func (r *Regexp) Match(text []byte) (*Result, error) {
 	if len(smi) <= r.rsi {
 		return nil, fmt.Errorf("unexpected number of subexpressions %d in %v", len(smi), r)
 	}
-	return &Result{
-		Text:           text[smi[0]:smi[1]],
-		QuerySubmatch:  []int{smi[2*r.qsi] - smi[0], smi[2*r.qsi+1] - smi[0]},
-		ResultSubmatch: []int{smi[2*r.rsi] - smi[0], smi[2*r.rsi+1] - smi[0]},
-	}, nil
+	res := &Result{
+		Text: text[smi[0]:smi[1]],
+	}
+	if r.qsi >= 0 {
+		res.QuerySubmatch = []int{smi[2*r.qsi] - smi[0], smi[2*r.qsi+1] - smi[0]}
+	}
+	if r.rsi >= 0 {
+		res.ResultSubmatch = []int{smi[2*r.rsi] - smi[0], smi[2*r.rsi+1] - smi[0]}
+	}
+	return res, nil
 }
 
 type Pattern interface {
@@ -46,7 +51,7 @@ func compile(pat string) (*regexp.Regexp, int, int, error) {
 		return nil, 0, 0, err
 	}
 
-	var qsi, rsi int
+	qsi, rsi := -1, -1
 	for i, n := range re.SubexpNames() {
 		if n == qsn {
 			qsi = i
@@ -56,7 +61,7 @@ func compile(pat string) (*regexp.Regexp, int, int, error) {
 		}
 	}
 
-	if qsi < 0 || rsi < 0 {
+	if qsi < 0 || rsi < 0 || rsi < qsi {
 		return nil, 0, 0, fmt.Errorf("invalid subexpressions: %s", re)
 	}
 
@@ -143,8 +148,9 @@ func (s patternSlice) Empty() bool {
 	return true
 }
 
-func (s patternSlice) Compile(isRegexp bool) ([]*Regexp, error) {
+func (s patternSlice) Compile(isRegexp bool, custom ...string) ([]*Regexp, error) {
 	var res []*Regexp
+
 	for _, p := range s {
 		re, err := p.Compile(isRegexp)
 		if err != nil {
@@ -154,6 +160,15 @@ func (s patternSlice) Compile(isRegexp bool) ([]*Regexp, error) {
 			res = append(res, re)
 		}
 	}
+	for _, c := range custom {
+		pat := fmt.Sprintf(`(\n|\A).*(?P<r>%s).*(\n|\z)`, c)
+		re, err := regexp.Compile(pat)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, &Regexp{re, -1, 0})
+	}
+
 	return res, nil
 }
 

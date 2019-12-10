@@ -89,12 +89,16 @@ func (f *textFormatter) Format(path string, results grep.Results) error {
 			defer putBuf(formatBuf)
 
 			if f.flags&Fcolor != 0 {
-				formatBuf.Write(m.Text[:m.QuerySubmatch[0]])
-				formatBuf.Write([]byte(Cquery))
-				formatBuf.Write(m.Text[m.QuerySubmatch[0]:m.QuerySubmatch[1]])
-				formatBuf.Write([]byte(creset))
-				if m.ResultSubmatch != nil {
+				if m.QuerySubmatch != nil {
+					formatBuf.Write(m.Text[:m.QuerySubmatch[0]])
+					formatBuf.Write([]byte(Cquery))
+					formatBuf.Write(m.Text[m.QuerySubmatch[0]:m.QuerySubmatch[1]])
+					formatBuf.Write([]byte(creset))
+				}
+				if m.QuerySubmatch != nil && m.ResultSubmatch != nil {
 					formatBuf.Write(m.Text[m.QuerySubmatch[1]:m.ResultSubmatch[0]])
+				}
+				if m.ResultSubmatch != nil {
 					formatBuf.Write([]byte(Cresult))
 					formatBuf.Write(m.Text[m.ResultSubmatch[0]:m.ResultSubmatch[1]])
 					formatBuf.Write([]byte(creset))
