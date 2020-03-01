@@ -235,7 +235,7 @@ var (
 	plist = &stringPattern{
 		flag: "pl",
 		desc: "search by PLIST_FILES",
-		pat:  `\b(?P<q>([\w_]+_)?PLIST_FILES)\s*=.*(?P<r>%s).*(\n|\z)`,
+		pat:  `\b(?P<q>([\w_]+_)?PLIST_FILES)\s*=.*?(?P<r>%s).*(\n|\z)`,
 		val:  "",
 	}
 )
