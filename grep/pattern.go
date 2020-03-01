@@ -232,6 +232,12 @@ var (
 		pat:  `\b(?P<q>([\w_]+_)?USES)\s*(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))`,
 		val:  "",
 	}
+	plist = &stringPattern{
+		flag: "pl",
+		desc: "search by PLIST_FILES",
+		pat:  `\b(?P<q>([\w_]+_)?PLIST_FILES)\s*=.*(?P<r>%s).*(\n|\z)`,
+		val:  "",
+	}
 )
 
 var Patterns = patternSlice{
@@ -244,6 +250,7 @@ var Patterns = patternSlice{
 	maintainer,
 	portname,
 	uses,
+	plist,
 }
 
 func init() {

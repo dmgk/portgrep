@@ -212,3 +212,18 @@ func TestUses(t *testing.T) {
 
 	testStringPattern(t, uses, "go", false, matches, nomatches)
 }
+
+func TestPlistRe(t *testing.T) {
+	matches := []string{
+		"PLIST_FILES=	bin/bash",
+		"PLIST_FILES =bin/bash",
+		"PLIST_FILES =	bin/bash",
+		"OPT_PLIST_FILES =	bin/bash",
+	}
+
+	nomatches := []string{
+		"PLIST_FILES=	bin/zsh",
+	}
+
+	testStringPattern(t, plist, "bash", false, matches, nomatches)
+}
