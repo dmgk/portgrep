@@ -182,60 +182,60 @@ var (
 	broken = &boolPattern{
 		flag: "b",
 		desc: "search only ports marked BROKEN",
-		pat:  `\b(?P<q>BROKEN(_[^=]+)?)\s*=(?P<r>.*)(\n|\z)`,
+		pat:  `\b(?P<q>BROKEN(_[^=]+)?)\s*\??=(?P<r>.*)(\n|\z)`,
 	}
 	depends = &stringPattern{
 		flag: "d",
 		desc: "search by *_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
 	buildDepends = &stringPattern{
 		flag: "db",
 		desc: "search by BUILD_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
 	libDepends = &stringPattern{
 		flag: "dl",
 		desc: "search by LIB_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))`,
+		pat:  `\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))`,
 		val:  "",
 	}
 	runDepends = &stringPattern{
 		flag: "dr",
 		desc: "search by RUN_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
 	onlyForArchs = &stringPattern{
 		flag: "oa",
 		desc: "search by ONLY_FOR_ARCHS",
-		pat:  `\b(?P<q>ONLY_FOR_ARCHS)\s*(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))`,
+		pat:  `\b(?P<q>ONLY_FOR_ARCHS)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))`,
 		val:  "",
 	}
 	maintainer = &stringPattern{
 		flag: "m",
 		desc: "search by MAINTAINER",
-		pat:  `(?i)\b(?P<q>MAINTAINER)\s*=\s*(?P<r>%s).*(\n|\z)`,
+		pat:  `(?i)\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)`,
 		val:  "",
 	}
 	portname = &stringPattern{
 		flag: "n",
 		desc: "search by PORTNAME",
-		pat:  `(?i)\b(?P<q>PORTNAME)\s*=\s*(?P<r>%s).*(\n|\z)`,
+		pat:  `(?i)\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)`,
 		val:  "",
 	}
 	uses = &stringPattern{
 		flag: "u",
 		desc: "search by USES",
-		pat:  `\b(?P<q>([\w_]+_)?USES)\s*(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))`,
+		pat:  `\b(?P<q>([\w_]+_)?USES)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))`,
 		val:  "",
 	}
 	plist = &stringPattern{
 		flag: "pl",
 		desc: "search by PLIST_FILES",
-		pat:  `\b(?P<q>([\w_]+_)?PLIST_FILES)\s*=.*?(?P<r>%s).*(\n|\z)`,
+		pat:  `\b(?P<q>([\w_]+_)?PLIST_FILES)\s*(\+|\?)?=.*?(?P<r>%s).*(\n|\z)`,
 		val:  "",
 	}
 )

@@ -77,6 +77,8 @@ func TestBroken(t *testing.T) {
 func TestDepends(t *testing.T) {
 	matches := []string{
 		"BUILD_DEPENDS=	dash:shells/dash bash:shells/bash",
+		"BUILD_DEPENDS?=	dash:shells/dash bash:shells/bash",
+		"BUILD_DEPENDS+=	dash:shells/dash bash:shells/bash",
 		"RUN_DEPENDS=	bash>0:shells/bash dash:shells/dash",
 		"OPT_DEPENDS=	/usr/local/bin/bash:shells/bash",
 	}
@@ -106,6 +108,8 @@ func TestBuildDepends(t *testing.T) {
 func TestLibDepends(t *testing.T) {
 	matches := []string{
 		"LIB_DEPENDS=	dash:shells/dash bash:shells/bash",
+		"LIB_DEPENDS?=	dash:shells/dash bash:shells/bash",
+		"LIB_DEPENDS+=	dash:shells/dash bash:shells/bash",
 		"OPT_LIB_DEPENDS=	bash:shells/bash",
 	}
 
@@ -119,6 +123,8 @@ func TestLibDepends(t *testing.T) {
 func TestRunDepends(t *testing.T) {
 	matches := []string{
 		"RUN_DEPENDS=	dash:shells/dash bash:shells/bash",
+		"RUN_DEPENDS?=	dash:shells/dash bash:shells/bash",
+		"RUN_DEPENDS+=	dash:shells/dash bash:shells/bash",
 		"OPT_RUN_DEPENDS=	bash:shells/bash",
 	}
 
