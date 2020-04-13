@@ -13,7 +13,7 @@ Usage: portgrep [options] [regexp ...]
 
 Options:
   -C mode    colorized output mode: [auto|never|always] (default: auto)
-  -R path    ports tree root (default: /home/dg/ports/head)
+  -R path    ports tree root (default: /usr/ports)
   -x         treat query as a regular expression
   -v         show version
 
@@ -33,6 +33,7 @@ Predefined searches:
   -m  query  search by MAINTAINER
   -n  query  search by PORTNAME
   -u  query  search by USES
+  -pl query  search by PLIST_FILES
 ```
 
 ##### Examples:
