@@ -12,28 +12,29 @@
 Usage: portgrep [options] [regexp ...]
 
 Options:
-  -C mode    colorized output mode: [auto|never|always] (default: auto)
-  -R path    ports tree root (default: /usr/ports)
-  -x         treat query as a regular expression
-  -v         show version
+  -C mode     colorized output mode: [auto|never|always] (default: auto)
+  -R path     ports tree root (default: /home/dg/tmp/ports)
+  -c cat,...  limit search to only these categories
+  -x          treat query as a regular expression
+  -v          show version
 
 Formatting options:
-  -1         output origins in a single line (implies -o)
-  -o         output origins only
-  -s         sort results by origin
-  -T         do not indent results
+  -1          output origins in a single line (implies -o)
+  -o          output origins only
+  -s          sort results by origin
+  -T          do not indent results
 
 Predefined searches:
-  -b         search only ports marked BROKEN
-  -d  query  search by *_DEPENDS
-  -db query  search by BUILD_DEPENDS
-  -dl query  search by LIB_DEPENDS
-  -dr query  search by RUN_DEPENDS
-  -oa query  search by ONLY_FOR_ARCHS
-  -m  query  search by MAINTAINER
-  -n  query  search by PORTNAME
-  -u  query  search by USES
-  -pl query  search by PLIST_FILES
+  -b          search only ports marked BROKEN
+  -d  query   search by *_DEPENDS
+  -db query   search by BUILD_DEPENDS
+  -dl query   search by LIB_DEPENDS
+  -dr query   search by RUN_DEPENDS
+  -oa query   search by ONLY_FOR_ARCHS
+  -m  query   search by MAINTAINER
+  -n  query   search by PORTNAME
+  -u  query   search by USES
+  -pl query   search by PLIST_FILES
 ```
 
 ##### Examples:

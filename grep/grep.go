@@ -32,8 +32,8 @@ type Results []*Result
 
 type GrepFunc func(path string, res Results, err error) error
 
-func Grep(root string, rxs []*Regexp, fn GrepFunc, jobs int) error {
-	walkPipe, err := walk(root, jobs)
+func Grep(root string, cats []string, rxs []*Regexp, fn GrepFunc, jobs int) error {
+	walkPipe, err := walk(root, cats, jobs)
 	if err != nil {
 		return err
 	}
@@ -55,14 +55,14 @@ func Grep(root string, rxs []*Regexp, fn GrepFunc, jobs int) error {
 }
 
 var ignores = map[string]struct{}{
-	".svn":      struct{}{},
-	".git":      struct{}{},
-	"Mk":        struct{}{},
-	"Keywords":  struct{}{},
-	"Templates": struct{}{},
-	"Tools":     struct{}{},
-	"distfiles": struct{}{},
-	"packages":  struct{}{},
+	".svn":      {},
+	".git":      {},
+	"Mk":        {},
+	"Keywords":  {},
+	"Templates": {},
+	"Tools":     {},
+	"distfiles": {},
+	"packages":  {},
 }
 
 type walkResult struct {
@@ -72,7 +72,7 @@ type walkResult struct {
 
 type walkChan chan walkResult
 
-func walk(root string, jobs int) (walkChan, error) {
+func walk(root string, cats []string, jobs int) (walkChan, error) {
 	dir, err := ioutil.ReadDir(root)
 	if err != nil {
 		return nil, err
@@ -82,6 +82,12 @@ func walk(root string, jobs int) (walkChan, error) {
 
 	go func() {
 		defer close(out)
+
+		// prepare category filter "set" for fast lookup
+		catm := make(map[string]struct{})
+		for _, c := range cats {
+			catm[c] = struct{}{}
+		}
 
 		var wg sync.WaitGroup
 		sem := make(chan int, jobs)
@@ -94,6 +100,12 @@ func walk(root string, jobs int) (walkChan, error) {
 			name := fi.Name()
 			if _, ok := ignores[name]; ok {
 				continue
+			}
+
+			if len(catm) != 0 {
+				if _, ok := catm[name]; !ok {
+					continue
+				}
 			}
 
 			sem <- 1
@@ -166,7 +178,7 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 				buf, err := readFile(filepath.Join(portRoot, "Makefile"))
 				if err != nil {
 					if err, ok := err.(*os.PathError); ok && err.Err == syscall.ENOENT {
-						// Makefile dosn't exists at path... odd, but okay
+						// Makefile dosn't exist at path... odd, but okay
 						return
 					}
 					out <- grepResult{err: err}

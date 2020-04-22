@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
+	"strings"
 
 	"github.com/dmgk/portgrep/formatter"
 	"github.com/dmgk/portgrep/grep"
@@ -54,7 +55,12 @@ func runUnsorted(custom ...string) error {
 		return form.Format(path, results)
 	}
 
-	return grep.Grep(flagPortsRoot, rxs, fn, runtime.NumCPU())
+	var cats []string
+	if flagCategories != "" {
+		cats = strings.Split(flagCategories, ",")
+	}
+
+	return grep.Grep(flagPortsRoot, cats, rxs, fn, runtime.NumCPU())
 }
 
 func runSorted(custom ...string) error {
@@ -77,7 +83,12 @@ func runSorted(custom ...string) error {
 		return nil
 	}
 
-	err = grep.Grep(flagPortsRoot, rxs, fn, runtime.NumCPU())
+	var cats []string
+	if flagCategories != "" {
+		cats = strings.Split(flagCategories, ",")
+	}
+
+	err = grep.Grep(flagPortsRoot, cats, rxs, fn, runtime.NumCPU())
 	if err != nil {
 		return err
 	}
@@ -96,9 +107,10 @@ func runSorted(custom ...string) error {
 }
 
 var (
-	flagColorMode = "auto"
-	flagPortsRoot = "/usr/ports"
-	flagVersion   bool
+	flagColorMode  = "auto"
+	flagPortsRoot  = "/usr/ports"
+	flagCategories string
+	flagVersion    bool
 
 	flagOriginsSingleLine bool
 	flagOriginOnly        bool
@@ -113,16 +125,17 @@ var version = "devel"
 var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} [options] [regexp ...]
 
 Options:
-  -C mode    colorized output mode: [auto|never|always] (default: {{.colorMode}})
-  -R path    ports tree root (default: {{.portsRoot}})
-  -x         treat query as a regular expression
-  -v         show version
+  -C mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
+  -R path     ports tree root (default: {{.portsRoot}})
+  -c cat,...  limit search to only these categories
+  -x          treat query as a regular expression
+  -v          show version
 
 Formatting options:
-  -1         output origins in a single line (implies -o)
-  -o         output origins only
-  -s         sort results by origin
-  -T         do not indent results
+  -1          output origins in a single line (implies -o)
+  -o          output origins only
+  -s          sort results by origin
+  -T          do not indent results
 
 Predefined searches:{{range .patterns}}
   {{.Description}}{{end}}
@@ -141,6 +154,7 @@ func initFlags() {
 
 	flag.StringVar(&flagColorMode, "C", flagColorMode, "")
 	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
+	flag.StringVar(&flagCategories, "c", flagCategories, "")
 	flag.BoolVar(&flagVersion, "v", false, "")
 
 	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")

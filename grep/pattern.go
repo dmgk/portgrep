@@ -76,7 +76,7 @@ type stringPattern struct {
 }
 
 func (p *stringPattern) Description() string {
-	return fmt.Sprintf("-%-2s query  %s", p.flag, p.desc)
+	return fmt.Sprintf("-%-2s query   %s", p.flag, p.desc)
 }
 
 func (p *stringPattern) Empty() bool {
@@ -113,7 +113,7 @@ type boolPattern struct {
 }
 
 func (p *boolPattern) Description() string {
-	return fmt.Sprintf("-%-2s        %s", p.flag, p.desc)
+	return fmt.Sprintf("-%-2s         %s", p.flag, p.desc)
 }
 
 func (p *boolPattern) Empty() bool {
