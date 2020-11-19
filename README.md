@@ -11,12 +11,15 @@
 ```
 Usage: portgrep [options] [regexp ...]
 
-Options:
+General options:
   -C mode     colorized output mode: [auto|never|always] (default: auto)
-  -R path     ports tree root (default: /home/dg/tmp/ports)
+  -R path     ports tree root (default: /usr/ports)
+  -v          show version and exit
+
+Search options:
   -c cat,...  limit search to only these categories
+  -O          multiple searches are OR-ed (default: AND-ed)
   -x          treat query as a regular expression
-  -v          show version
 
 Formatting options:
   -1          output origins in a single line (implies -o)
@@ -30,11 +33,12 @@ Predefined searches:
   -db query   search by BUILD_DEPENDS
   -dl query   search by LIB_DEPENDS
   -dr query   search by RUN_DEPENDS
-  -oa query   search by ONLY_FOR_ARCHS
+  -dt query   search by TEST_DEPENDS
   -m  query   search by MAINTAINER
   -n  query   search by PORTNAME
-  -u  query   search by USES
+  -oa query   search by ONLY_FOR_ARCHS
   -pl query   search by PLIST_FILES
+  -u  query   search by USES
 ```
 
 ##### Examples:
