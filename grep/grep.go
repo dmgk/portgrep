@@ -32,12 +32,12 @@ type Results []*Result
 
 type GrepFunc func(path string, res Results, err error) error
 
-func Grep(root string, cats []string, rxs []*Regexp, fn GrepFunc, jobs int) error {
+func Grep(root string, rxsOr bool, cats []string, rxs []*Regexp, fn GrepFunc, jobs int) error {
 	walkPipe, err := walk(root, cats, jobs)
 	if err != nil {
 		return err
 	}
-	grepPipe, err := walkPipe.grep(rxs, jobs)
+	grepPipe, err := walkPipe.grep(rxs, rxsOr, jobs)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ type grepResult struct {
 
 type grepChan chan grepResult
 
-func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
+func (walk walkChan) grep(rxs []*Regexp, rxsOr bool, jobs int) (grepChan, error) {
 	out := make(grepChan)
 
 	go func() {
@@ -195,11 +195,13 @@ func (walk walkChan) grep(rxs []*Regexp, jobs int) (grepChan, error) {
 						out <- grepResult{err: err}
 						return
 					}
-					if m == nil {
-						return // no match
+					if !rxsOr && m == nil {
+						return // results are ANDed and current rx doesn't match
 					}
-					m.Text = bytes.ReplaceAll(m.Text, []byte{0, 0}, []byte{'\\', '\n'})
-					res = append(res, m)
+					if m != nil {
+						m.Text = bytes.ReplaceAll(m.Text, []byte{0, 0}, []byte{'\\', '\n'})
+						res = append(res, m)
+					}
 				}
 
 				if res != nil {

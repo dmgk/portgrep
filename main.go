@@ -60,7 +60,7 @@ func runUnsorted(custom ...string) error {
 		cats = strings.Split(flagCategories, ",")
 	}
 
-	return grep.Grep(flagPortsRoot, cats, rxs, fn, runtime.NumCPU())
+	return grep.Grep(flagPortsRoot, flagOr, cats, rxs, fn, runtime.NumCPU())
 }
 
 func runSorted(custom ...string) error {
@@ -88,7 +88,7 @@ func runSorted(custom ...string) error {
 		cats = strings.Split(flagCategories, ",")
 	}
 
-	err = grep.Grep(flagPortsRoot, cats, rxs, fn, runtime.NumCPU())
+	err = grep.Grep(flagPortsRoot, flagOr, cats, rxs, fn, runtime.NumCPU())
 	if err != nil {
 		return err
 	}
@@ -107,29 +107,33 @@ func runSorted(custom ...string) error {
 }
 
 var (
-	flagColorMode  = "auto"
-	flagPortsRoot  = "/usr/ports"
+	flagColorMode = "auto"
+	flagPortsRoot = "/usr/ports"
+	flagVersion   bool
+
 	flagCategories string
-	flagVersion    bool
+	flagOr         bool
+	flagRegexp     bool
 
 	flagOriginsSingleLine bool
 	flagOriginOnly        bool
 	flagSort              bool
 	flagNoIndent          bool
-
-	flagRegexp bool
 )
 
 var version = "devel"
 
 var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} [options] [regexp ...]
 
-Options:
+General options:
   -C mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
   -R path     ports tree root (default: {{.portsRoot}})
+  -v          show version and exit
+
+Search options:
   -c cat,...  limit search to only these categories
+  -O          multiple searches are OR-ed (default: AND-ed)
   -x          treat query as a regular expression
-  -v          show version
 
 Formatting options:
   -1          output origins in a single line (implies -o)
@@ -154,15 +158,16 @@ func initFlags() {
 
 	flag.StringVar(&flagColorMode, "C", flagColorMode, "")
 	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
-	flag.StringVar(&flagCategories, "c", flagCategories, "")
 	flag.BoolVar(&flagVersion, "v", false, "")
+
+	flag.StringVar(&flagCategories, "c", flagCategories, "")
+	flag.BoolVar(&flagOr, "O", false, "")
+	flag.BoolVar(&flagRegexp, "x", false, "")
 
 	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
 	flag.BoolVar(&flagOriginOnly, "o", false, "")
 	flag.BoolVar(&flagSort, "s", false, "")
 	flag.BoolVar(&flagNoIndent, "T", false, "")
-
-	flag.BoolVar(&flagRegexp, "x", false, "")
 
 	flag.Usage = func() {
 		err := usageTemplate.Execute(os.Stderr, map[string]interface{}{

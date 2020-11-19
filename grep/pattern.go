@@ -208,6 +208,12 @@ var (
 		pat:  `\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
 		val:  "",
 	}
+	testDepends = &stringPattern{
+		flag: "dt",
+		desc: "search by TEST_DEPENDS",
+		pat:  `\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		val:  "",
+	}
 	onlyForArchs = &stringPattern{
 		flag: "oa",
 		desc: "search by ONLY_FOR_ARCHS",
@@ -246,11 +252,12 @@ var Patterns = patternSlice{
 	buildDepends,
 	libDepends,
 	runDepends,
-	onlyForArchs,
+	testDepends,
 	maintainer,
 	portname,
-	uses,
+	onlyForArchs,
 	plist,
+	uses,
 }
 
 func init() {
