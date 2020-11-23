@@ -11,8 +11,11 @@ import (
 	"syscall"
 )
 
+// Stop is a special value that can be returned by GrepFunc to indicate that
+// search needs to be terminated early.
 var Stop = errors.New("stop")
 
+// Result describes one search match result.
 type Result struct {
 	// Text holds the match as a byte slice
 	Text []byte
@@ -30,14 +33,24 @@ func (r *Result) String() string {
 
 type Results []*Result
 
+// GrepFunc is called for each found match and will be passed the path where
+// match was found and a slice of match results.  A Special error value Stop
+// can be returned to terminate search early.
 type GrepFunc func(path string, res Results, err error) error
 
-func Grep(root string, rxsOr bool, cats []string, rxs []*Regexp, fn GrepFunc, jobs int) error {
+// Grep searches port Makefiles, looking for matches described by rxs.  It
+// starts looking for Makefiles in root directory, and descends up to two
+// levels down (category/port).  If cats slice is not empty, Grep descends only
+// to categories listed in cats.  By default, multiple regular expressions in
+// rxs are AND-ed together, this can be changed by setting rxsOred to true.
+// The search will be run by using up to jobs goroutines, the usual practice is
+// to set this to runtime.NumCPU() for the best results.
+func Grep(root string, cats []string, rxs []*Regexp, rxsOred bool, fn GrepFunc, jobs int) error {
 	walkPipe, err := walk(root, cats, jobs)
 	if err != nil {
 		return err
 	}
-	grepPipe, err := walkPipe.grep(rxs, rxsOr, jobs)
+	grepPipe, err := walkPipe.grep(rxs, rxsOred, jobs)
 	if err != nil {
 		return err
 	}

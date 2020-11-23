@@ -60,7 +60,7 @@ func runUnsorted(custom ...string) error {
 		cats = strings.Split(flagCategories, ",")
 	}
 
-	return grep.Grep(flagPortsRoot, flagOr, cats, rxs, fn, runtime.NumCPU())
+	return grep.Grep(flagPortsRoot, cats, rxs, flagOred, fn, runtime.NumCPU())
 }
 
 func runSorted(custom ...string) error {
@@ -88,7 +88,7 @@ func runSorted(custom ...string) error {
 		cats = strings.Split(flagCategories, ",")
 	}
 
-	err = grep.Grep(flagPortsRoot, flagOr, cats, rxs, fn, runtime.NumCPU())
+	err = grep.Grep(flagPortsRoot, cats, rxs, flagOred, fn, runtime.NumCPU())
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ var (
 	flagVersion   bool
 
 	flagCategories string
-	flagOr         bool
+	flagOred       bool
 	flagRegexp     bool
 
 	flagOriginsSingleLine bool
@@ -161,7 +161,7 @@ func initFlags() {
 	flag.BoolVar(&flagVersion, "v", false, "")
 
 	flag.StringVar(&flagCategories, "c", flagCategories, "")
-	flag.BoolVar(&flagOr, "O", false, "")
+	flag.BoolVar(&flagOred, "O", false, "")
 	flag.BoolVar(&flagRegexp, "x", false, "")
 
 	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
