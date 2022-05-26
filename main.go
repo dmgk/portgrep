@@ -147,7 +147,7 @@ Predefined searches:{{range .patterns}}
 
 func initFlags() {
 	// disable GC, this is short-running utility and performance is more
-	// important than memory consumpltion
+	// important than memory consumption
 	debug.SetGCPercent(-1)
 
 	basename := path.Base(os.Args[0])

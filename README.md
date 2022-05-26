@@ -1,10 +1,10 @@
-`portgrep` is a fast parallel ports tree search utility.
+## Fast parallel ports tree search utility.
 
-[![Build Status](https://travis-ci.org/dmgk/portgrep.svg?branch=master)](https://travis-ci.org/dmgk/portgrep)
+![Tests](https://github.com/dmgk/portgrep/actions/workflows/tests.yml/badge.svg)
 
 #### Installation
 
-    go get github.com/dmgk/portgrep
+    go install github.com/dmgk/portgrep@latest
 
 #### Usage
 
@@ -41,7 +41,7 @@ Predefined searches:
   -u  query   search by USES
 ```
 
-##### Examples:
+#### Examples:
 
 Find broken Go ports:
 
