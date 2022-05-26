@@ -1,10 +1,12 @@
-## Fast parallel ports tree search utility.
+## portgrep
+
+portgrep is a fast parallel ports tree search utility.
 
 ![Tests](https://github.com/dmgk/portgrep/actions/workflows/tests.yml/badge.svg)
 
 #### Installation
 
-    go install github.com/dmgk/portgrep@latest
+    go install github.com/dmgk/portgrep
 
 #### Usage
 
