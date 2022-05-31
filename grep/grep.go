@@ -68,10 +68,11 @@ func Grep(root string, cats []string, rxs []*Regexp, rxsOred bool, fn GrepFunc, 
 }
 
 var ignores = map[string]struct{}{
-	".svn":      {},
 	".git":      {},
-	"Mk":        {},
+	".hooks":    {},
+	".svn":      {},
 	"Keywords":  {},
+	"Mk":        {},
 	"Templates": {},
 	"Tools":     {},
 	"distfiles": {},
