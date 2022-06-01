@@ -19,14 +19,47 @@ const (
 	Fdefaults = FstripRoot
 )
 
-var (
-	Cquery     = "\033[0;91m"
-	Cresult    = "\033[0;92m"
-	Cpath      = "\033[0;93m"
-	Cseparator = "\033[0;38m"
-)
+var colorMap = map[byte]string{
+	'a': "\033[0;30m", // black
+	'b': "\033[0;31m", // red
+	'c': "\033[0;32m", // green
+	'd': "\033[0;33m", // yellow
+	'e': "\033[0;34m", // blue
+	'f': "\033[0;35m", // magenta
+	'g': "\033[0;36m", // cyan
+	'h': "\033[0;37m", // white
+	'A': "\033[0;90m", // bright black (grey)
+	'B': "\033[0;91m", // bright red
+	'C': "\033[0;92m", // bright green
+	'D': "\033[0;93m", // bright yellow
+	'E': "\033[0;94m", // bright blue
+	'F': "\033[0;95m", // bright magenta
+	'G': "\033[0;96m", // bright cyan
+	'H': "\033[0;97m", // bright white
+}
 
 const creset = "\033[0m"
+
+const DefaultColors = "BCDA"
+
+const (
+	cquery = iota
+	cmatch
+	cpath
+	cseparator
+
+	ncolors
+)
+
+var colors [ncolors]string
+
+func SetColors(c string) {
+	for i, k := range []byte(c) {
+		if v, ok := colorMap[k]; ok && i < len(colors) {
+			colors[i] = v
+		}
+	}
+}
 
 type Formatter interface {
 	SetIndent(indent string)
@@ -84,14 +117,13 @@ func (f *textFormatter) Format(path string, results grep.Results) error {
 
 	if results != nil {
 		if f.flags&Fcolor != 0 {
-			buf.Write([]byte(Cpath))
+			buf.WriteString(colors[cpath])
 			buf.WriteString(path)
-			buf.WriteString(":\n")
-			buf.Write([]byte(creset))
+			buf.WriteString(creset)
 		} else {
 			buf.WriteString(path)
-			buf.WriteString(":\n")
 		}
+		buf.WriteString(":\n")
 
 		for i, m := range results {
 			formatBuf := getBuf()
@@ -99,9 +131,9 @@ func (f *textFormatter) Format(path string, results grep.Results) error {
 
 			if i > 0 {
 				if f.flags&Fcolor != 0 {
-					formatBuf.Write([]byte(Cseparator))
+					formatBuf.WriteString(colors[cseparator])
 					formatBuf.WriteString("--------\n")
-					formatBuf.Write([]byte(creset))
+					formatBuf.WriteString(creset)
 				} else {
 					formatBuf.WriteString("--------\n")
 				}
@@ -110,17 +142,17 @@ func (f *textFormatter) Format(path string, results grep.Results) error {
 			if f.flags&Fcolor != 0 {
 				if m.QuerySubmatch != nil {
 					formatBuf.Write(m.Text[:m.QuerySubmatch[0]])
-					formatBuf.Write([]byte(Cquery))
+					formatBuf.WriteString(colors[cquery])
 					formatBuf.Write(m.Text[m.QuerySubmatch[0]:m.QuerySubmatch[1]])
-					formatBuf.Write([]byte(creset))
+					formatBuf.WriteString(creset)
 				}
 				if m.QuerySubmatch != nil && m.ResultSubmatch != nil {
 					formatBuf.Write(m.Text[m.QuerySubmatch[1]:m.ResultSubmatch[0]])
 				}
 				if m.ResultSubmatch != nil {
-					formatBuf.Write([]byte(Cresult))
+					formatBuf.WriteString(colors[cmatch])
 					formatBuf.Write(m.Text[m.ResultSubmatch[0]:m.ResultSubmatch[1]])
-					formatBuf.Write([]byte(creset))
+					formatBuf.WriteString(creset)
 					formatBuf.Write(m.Text[m.ResultSubmatch[1]:])
 				}
 			} else {
@@ -165,4 +197,8 @@ func getBuf() *bytes.Buffer {
 func putBuf(buf *bytes.Buffer) {
 	buf.Reset()
 	bufPool.Put(buf)
+}
+
+func init() {
+	SetColors(DefaultColors)
 }

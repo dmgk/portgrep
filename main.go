@@ -107,14 +107,13 @@ func runSorted(custom ...string) error {
 }
 
 var (
-	flagColorMode = "auto"
-	flagPortsRoot = "/usr/ports"
-	flagVersion   bool
-
-	flagCategories string
-	flagOred       bool
-	flagRegexp     bool
-
+	flagColorMode         = "auto"
+	flagColors            = formatter.DefaultColors
+	flagPortsRoot         = "/usr/ports"
+	flagVersion           bool
+	flagCategories        string
+	flagOred              bool
+	flagRegexp            bool
 	flagOriginsSingleLine bool
 	flagAfterContext      int
 	flagBeforeContext     int
@@ -130,8 +129,10 @@ var usageTemplate = template.Must(template.New("Usage").Parse(`
 Usage: {{.basename}} [options] [query ...]
 
 General options:
-  -M mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
   -R path     ports tree root (default: {{.portsRoot}})
+  -M mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
+  -G colors   set colors (default: "{{.colors}}")
+              the order is query,match,path,separator; see ls(1) for color codes
   -h          show help and exit
   -V          show version and exit
 
@@ -163,9 +164,13 @@ func initFlags() {
 	if val, ok := os.LookupEnv("PORTSDIR"); ok && val != "" {
 		flagPortsRoot = val
 	}
+	if val, ok := os.LookupEnv("PORTGREP_COLORS"); ok && val != "" {
+		flagColors = val
+	}
 
-	flag.StringVar(&flagColorMode, "M", flagColorMode, "")
 	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
+	flag.StringVar(&flagColorMode, "M", flagColorMode, "")
+	flag.StringVar(&flagColors, "G", flagColors, "")
 	flag.BoolVar(&flagVersion, "V", false, "")
 
 	flag.StringVar(&flagCategories, "c", flagCategories, "")
@@ -185,6 +190,7 @@ func initFlags() {
 			"basename":  basename,
 			"portsRoot": flagPortsRoot,
 			"colorMode": flagColorMode,
+			"colors":    flagColors,
 			"patterns":  grep.Patterns,
 		})
 		if err != nil {
@@ -234,6 +240,9 @@ func initFormatter() {
 
 	if flagColorMode == colorModeAlways || (term && flagColorMode == colorModeAuto) {
 		flags |= formatter.Fcolor
+		if flagColors != "" {
+			formatter.SetColors(flagColors)
+		}
 	}
 
 	if flagOriginsSingleLine {
