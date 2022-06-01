@@ -11,12 +11,13 @@ portgrep is a fast parallel ports tree search utility.
 #### Usage
 
 ```
-Usage: portgrep [options] [regexp ...]
+Usage: portgrep [options] [query ...]
 
 General options:
-  -C mode     colorized output mode: [auto|never|always] (default: auto)
-  -R path     ports tree root (default: /usr/ports)
-  -v          show version and exit
+  -M mode     colorized output mode: [auto|never|always] (default: auto)
+  -R path     ports tree root (default: /home/dg/ports/main)
+  -h          show help and exit
+  -V          show version and exit
 
 Search options:
   -c cat,...  limit search to only these categories
@@ -25,6 +26,9 @@ Search options:
 
 Formatting options:
   -1          output origins in a single line (implies -o)
+  -A n        show n lines of context after match
+  -B n        show n lines of context before match
+  -C n        show n lines of context around match
   -o          output origins only
   -s          sort results by origin
   -T          do not indent results
@@ -45,7 +49,7 @@ Predefined searches:
 
 #### Examples:
 
-Find broken Go ports:
+Find broken USES=go ports:
 
 ```sh
 $ portgrep -u go -b
@@ -67,23 +71,55 @@ devel/grumpy:
 ...
 ```
 
-Find ports depending on `botan2`:
+Find ports depending on `libcjson`, with 2 lines of context:
 
 ```sh
-$ portgrep -d botan2
-editors/encryptpad:
-        LIB_DEPENDS=    libbotan-2.so:security/botan2
-sysutils/daggy:
-        LIB_DEPENDS=    libbotan-2.so:security/botan2 \
-                        libyaml-cpp.so:devel/yaml-cpp
-devel/qca:
-        BOTAN_LIB_DEPENDS=      libbotan-2.so:security/botan2
+$ portgrep -d libcjson -C 2
+audio/ocp:
+
+        BUILD_DEPENDS=  xa65:devel/xa65
+        LIB_DEPENDS=    libcjson.so:devel/libcjson \
+                        libdiscid.so:audio/libdiscid \
+                        libid3tag.so:audio/libid3tag \
+                        libmad.so:audio/libmad \
+                        libogg.so:audio/libogg \
+                        libvorbis.so:audio/libvorbis
+
+        USES=           compiler:c11 dos2unix gmake gnome iconv localbase:ldflags \
+                        makeinfo ncurses pkgconfig tar:bz2
+multimedia/librist:
+        LICENSE_FILE=   ${WRKSRC}/COPYING
+
+        LIB_DEPENDS=    libcjson.so:devel/libcjson \
+                        libmbedcrypto.so:security/mbedtls
+
+        USES=           localbase:ldflags meson pkgconfig
+devel/libcbor:
+        LICENSE_FILE=   ${WRKSRC}/LICENSE.md
+
+        LIB_DEPENDS=    libcjson.so:devel/libcjson
+
+        USES=           cmake
+net/mosquitto:
+
+        BUILD_DEPENDS=  xsltproc:textproc/libxslt \
+                        docbook-xsl>0:textproc/docbook-xsl
+        LIB_DEPENDS=    libuuid.so:misc/e2fsprogs-libuuid \
+                        libcjson.so:devel/libcjson
+        RUN_DEPENDS=    ${LOCALBASE}/share/certs/ca-root-nss.crt:security/ca_root_nss
+
+devel/tinycbor:
+        LICENSE_FILE=   ${WRKSRC}/LICENSE
+
+        LIB_DEPENDS=    libcjson.so:devel/libcjson
+
+        USES=           gmake localbase pathfix
 ```
 
 Search by an arbitrary regex:
 
 ```sh
-$ portgrep 'REINPLACE_CMD.*\s-i'
+$ portgrep -x 'REINPLACE_CMD.*\s-i'
 www/yarn:
 
                 @${REINPLACE_CMD} -i '' \

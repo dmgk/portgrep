@@ -127,7 +127,7 @@ var (
 var version = "devel"
 
 var usageTemplate = template.Must(template.New("Usage").Parse(`
-Usage: {{.basename}} [options] [regexp ...]
+Usage: {{.basename}} [options] [query ...]
 
 General options:
   -M mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
