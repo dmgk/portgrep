@@ -21,8 +21,9 @@ const (
 
 var (
 	Cquery     = "\033[0;91m"
-	Cresult    = "\033[0;92m" // "\033[4m"
-	Cseparator = "\033[0;98m"
+	Cresult    = "\033[0;92m"
+	Cpath      = "\033[0;93m"
+	Cseparator = "\033[0;38m"
 )
 
 const creset = "\033[0m"
@@ -82,17 +83,28 @@ func (f *textFormatter) Format(path string, results grep.Results) error {
 	}
 
 	if results != nil {
-		buf.WriteString(path)
-		buf.WriteString(":\n")
+		if f.flags&Fcolor != 0 {
+			buf.Write([]byte(Cpath))
+			buf.WriteString(path)
+			buf.WriteString(":\n")
+			buf.Write([]byte(creset))
+		} else {
+			buf.WriteString(path)
+			buf.WriteString(":\n")
+		}
 
 		for i, m := range results {
 			formatBuf := getBuf()
 			defer putBuf(formatBuf)
 
 			if i > 0 {
-				formatBuf.Write([]byte(Cseparator))
-				formatBuf.WriteString("--------\n")
-				formatBuf.Write([]byte(creset))
+				if f.flags&Fcolor != 0 {
+					formatBuf.Write([]byte(Cseparator))
+					formatBuf.WriteString("--------\n")
+					formatBuf.Write([]byte(creset))
+				} else {
+					formatBuf.WriteString("--------\n")
+				}
 			}
 
 			if f.flags&Fcolor != 0 {
