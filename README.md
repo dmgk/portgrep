@@ -14,8 +14,10 @@ portgrep is a fast parallel ports tree search utility.
 Usage: portgrep [options] [query ...]
 
 General options:
+  -R path     ports tree root (default: /usr/ports)
   -M mode     colorized output mode: [auto|never|always] (default: auto)
-  -R path     ports tree root (default: /home/dg/ports/main)
+  -G colors   set colors (default: "BCDA")
+              the order is query,match,path,separator; see ls(1) for color codes
   -h          show help and exit
   -V          show version and exit
 
@@ -54,21 +56,17 @@ Find broken USES=go ports:
 ```sh
 $ portgrep -u go -b
 databases/cayley:
-        BROKEN_i386= gopkg.in/mgo.v2/bson/json.go:320:7: constant 9007199254740992 overflows int
-        USES=  go:modules
-databases/mongodb34-tools:
-        BROKEN_SSL= openssl111 libressl libressl-devel
-        USES= go localbase
+        BROKEN_i386=    gopkg.in/mgo.v2/bson/json.go:320:7: constant 9007199254740992 overflows int
+        --------
+        USES=           go:modules
+databases/litestream:
+        BROKEN_i386=    Build error: constant 9223372036854775807 overflows int
+        --------
+        USES=           go:modules
 databases/mongodb36-tools:
-        BROKEN_SSL= openssl111 libressl libressl-devel
-        USES= go localbase
-misc/exercism:
-        BROKEN=  unfetchable
-        USES=  go
-devel/grumpy:
-        BROKEN_i386= constant 2147762812 overflows int
-        USES=  gmake go:no_targets,run python:2.7 shebangfix
-...
+        BROKEN_SSL=     openssl libressl libressl-devel
+        --------
+        USES=   go localbase
 ```
 
 Find ports depending on `libcjson`, with 2 lines of context:
