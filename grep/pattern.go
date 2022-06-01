@@ -35,7 +35,8 @@ func (r *Regexp) Match(text []byte) (*Result, error) {
 type Pattern interface {
 	Description() string
 	Empty() bool
-	Compile(isRegexp bool) (*Regexp, error)
+	Compile(ctxBefore, ctxAfter int) (*Regexp, error)
+	CompileNoQuote(ctxBefore, ctxAfter int) (*Regexp, error)
 
 	register()
 }
@@ -83,22 +84,22 @@ func (p *stringPattern) Empty() bool {
 	return p.val == ""
 }
 
-func (p *stringPattern) Compile(isRegexp bool) (*Regexp, error) {
+func (p *stringPattern) CompileNoQuote(ctxBefore, ctxAfter int) (*Regexp, error) {
 	if p.Empty() {
 		return nil, nil
 	}
 
-	q := p.val
-	if !isRegexp {
-		q = regexp.QuoteMeta(q)
-	}
-
-	re, qsi, rsi, err := compile(fmt.Sprintf(p.pat, q))
+	re, qsi, rsi, err := compile(fmt.Sprintf(p.pat, ctxBefore, p.val, ctxAfter))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Regexp{re, qsi, rsi}, nil
+}
+
+func (p *stringPattern) Compile(ctxBefore, ctxAfter int) (*Regexp, error) {
+	p.val = regexp.QuoteMeta(p.val)
+	return p.CompileNoQuote(ctxBefore, ctxAfter)
 }
 
 func (p *stringPattern) register() {
@@ -120,17 +121,21 @@ func (p *boolPattern) Empty() bool {
 	return !p.val
 }
 
-func (p *boolPattern) Compile( /* unused */ bool) (*Regexp, error) {
+func (p *boolPattern) CompileNoQuote(ctxBefore, ctxAfter int) (*Regexp, error) {
 	if p.Empty() {
 		return nil, nil
 	}
 
-	re, qsi, rsi, err := compile(p.pat)
+	re, qsi, rsi, err := compile(fmt.Sprintf(p.pat, ctxBefore, ctxAfter))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Regexp{re, qsi, rsi}, nil
+}
+
+func (p *boolPattern) Compile(ctxBefore, ctxAfter int) (*Regexp, error) {
+	return p.CompileNoQuote(ctxBefore, ctxAfter)
 }
 
 func (p *boolPattern) register() {
@@ -148,25 +153,35 @@ func (s patternSlice) Empty() bool {
 	return true
 }
 
-func (s patternSlice) Compile(isRegexp bool, custom ...string) ([]*Regexp, error) {
-	var res []*Regexp
+// no query group, only result
+const customPat = `(?:.*\n){0,%d}.*(?P<q>)(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`
 
-	for _, p := range s {
-		re, err := p.Compile(isRegexp)
+func (s patternSlice) Compile(ctxBefore, ctxAfter int, valIsRegexp bool, custom ...string) ([]*Regexp, error) {
+	// create patterns for custom queries
+	var cps []Pattern
+	for _, c := range custom {
+		p := &stringPattern{
+			pat: customPat,
+			val: c,
+		}
+		cps = append(cps, p)
+	}
+
+	var res []*Regexp
+	for _, p := range append(s, cps...) {
+		var re *Regexp
+		var err error
+		if valIsRegexp {
+			re, err = p.CompileNoQuote(ctxBefore, ctxAfter)
+		} else {
+			re, err = p.Compile(ctxBefore, ctxAfter)
+		}
 		if err != nil {
 			return nil, err
 		}
 		if re != nil {
 			res = append(res, re)
 		}
-	}
-	for _, c := range custom {
-		pat := fmt.Sprintf(`(\n|\A).*(?P<r>%s).*(\n|\z)`, c)
-		re, err := regexp.Compile(pat)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, &Regexp{re, -1, 0})
 	}
 
 	return res, nil
@@ -182,66 +197,66 @@ var (
 	broken = &boolPattern{
 		flag: "b",
 		desc: "search only ports marked BROKEN",
-		pat:  `\b(?P<q>BROKEN(_[^=]+)?)\s*\??=(?P<r>.*)(\n|\z)`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>BROKEN(_[^=]+)?)\s*\??=(?P<r>.*)(\n|\z)(?:.*\n){0,%d}`,
 	}
 	depends = &stringPattern{
 		flag: "d",
 		desc: "search by *_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	buildDepends = &stringPattern{
 		flag: "db",
 		desc: "search by BUILD_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	libDepends = &stringPattern{
 		flag: "dl",
 		desc: "search by LIB_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	runDepends = &stringPattern{
 		flag: "dr",
 		desc: "search by RUN_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	testDepends = &stringPattern{
 		flag: "dt",
 		desc: "search by TEST_DEPENDS",
-		pat:  `\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	onlyForArchs = &stringPattern{
 		flag: "oa",
 		desc: "search by ONLY_FOR_ARCHS",
-		pat:  `\b(?P<q>ONLY_FOR_ARCHS)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>ONLY_FOR_ARCHS)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	maintainer = &stringPattern{
 		flag: "m",
 		desc: "search by MAINTAINER",
-		pat:  `(?i)\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)`,
+		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	portname = &stringPattern{
 		flag: "n",
 		desc: "search by PORTNAME",
-		pat:  `(?i)\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)`,
+		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	uses = &stringPattern{
 		flag: "u",
 		desc: "search by USES",
-		pat:  `\b(?P<q>([\w_]+_)?USES)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?USES)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))(?:.*\n){0,%d}`,
 		val:  "",
 	}
 	plist = &stringPattern{
 		flag: "pl",
 		desc: "search by PLIST_FILES",
-		pat:  `\b(?P<q>([\w_]+_)?PLIST_FILES)\s*(\+|\?)?=.*?(?P<r>%s).*(\n|\z)`,
+		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?PLIST_FILES)\s*(\+|\?)?=.*?(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 		val:  "",
 	}
 )

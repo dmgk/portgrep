@@ -210,7 +210,7 @@ func (walk walkChan) grep(rxs []*Regexp, rxsOr bool, jobs int) (grepChan, error)
 						return
 					}
 					if !rxsOr && m == nil {
-						return // results are ANDed and current rx doesn't match
+						return // results are ANDed and the current rx doesn't match
 					}
 					if m != nil {
 						m.Text = bytes.ReplaceAll(m.Text, []byte{0, 0}, []byte{'\\', '\n'})

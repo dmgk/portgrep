@@ -43,7 +43,7 @@ func main() {
 }
 
 func runUnsorted(custom ...string) error {
-	rxs, err := grep.Patterns.Compile(flagRegexp, custom...)
+	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, flagRegexp, custom...)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func runUnsorted(custom ...string) error {
 }
 
 func runSorted(custom ...string) error {
-	rxs, err := grep.Patterns.Compile(flagRegexp, custom...)
+	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, flagRegexp, custom...)
 	if err != nil {
 		return err
 	}
@@ -116,6 +116,9 @@ var (
 	flagRegexp     bool
 
 	flagOriginsSingleLine bool
+	flagAfterContext      int
+	flagBeforeContext     int
+	flagAroundContext     int
 	flagOriginOnly        bool
 	flagSort              bool
 	flagNoIndent          bool
@@ -123,12 +126,14 @@ var (
 
 var version = "devel"
 
-var usageTemplate = template.Must(template.New("Usage").Parse(`Usage: {{.basename}} [options] [regexp ...]
+var usageTemplate = template.Must(template.New("Usage").Parse(`
+Usage: {{.basename}} [options] [regexp ...]
 
 General options:
-  -C mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
+  -M mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
   -R path     ports tree root (default: {{.portsRoot}})
-  -v          show version and exit
+  -h          show help and exit
+  -V          show version and exit
 
 Search options:
   -c cat,...  limit search to only these categories
@@ -137,13 +142,16 @@ Search options:
 
 Formatting options:
   -1          output origins in a single line (implies -o)
+  -A n        show n lines of context after match
+  -B n        show n lines of context before match
+  -C n        show n lines of context around match
   -o          output origins only
   -s          sort results by origin
   -T          do not indent results
 
 Predefined searches:{{range .patterns}}
   {{.Description}}{{end}}
-`))
+`[1:]))
 
 func initFlags() {
 	// disable GC, this is short-running utility and performance is more
@@ -152,19 +160,22 @@ func initFlags() {
 
 	basename := path.Base(os.Args[0])
 
-	if val, ok := os.LookupEnv("PORTSDIR"); ok {
+	if val, ok := os.LookupEnv("PORTSDIR"); ok && val != "" {
 		flagPortsRoot = val
 	}
 
-	flag.StringVar(&flagColorMode, "C", flagColorMode, "")
+	flag.StringVar(&flagColorMode, "M", flagColorMode, "")
 	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
-	flag.BoolVar(&flagVersion, "v", false, "")
+	flag.BoolVar(&flagVersion, "V", false, "")
 
 	flag.StringVar(&flagCategories, "c", flagCategories, "")
 	flag.BoolVar(&flagOred, "O", false, "")
 	flag.BoolVar(&flagRegexp, "x", false, "")
 
 	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
+	flag.IntVar(&flagAfterContext, "A", 0, "")
+	flag.IntVar(&flagBeforeContext, "B", 0, "")
+	flag.IntVar(&flagAroundContext, "C", 0, "")
 	flag.BoolVar(&flagOriginOnly, "o", false, "")
 	flag.BoolVar(&flagSort, "s", false, "")
 	flag.BoolVar(&flagNoIndent, "T", false, "")
@@ -193,6 +204,13 @@ func initFlags() {
 		fmt.Fprintf(os.Stderr, "invalid color mode: %s\n", flagColorMode)
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if flagAroundContext > 0 && flagAfterContext == 0 {
+		flagAfterContext = flagAroundContext
+	}
+	if flagAroundContext > 0 && flagBeforeContext == 0 {
+		flagBeforeContext = flagAroundContext
 	}
 
 	// neither predefined query or custom regexp provided
