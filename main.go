@@ -43,7 +43,7 @@ func main() {
 }
 
 func runUnsorted(custom ...string) error {
-	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, flagRegexp, custom...)
+	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, !flagPlainText, custom...)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func runUnsorted(custom ...string) error {
 }
 
 func runSorted(custom ...string) error {
-	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, flagRegexp, custom...)
+	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, !flagPlainText, custom...)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ var (
 	flagVersion           bool
 	flagCategories        string
 	flagOred              bool
-	flagRegexp            bool
+	flagPlainText         bool
 	flagOriginsSingleLine bool
 	flagAfterContext      int
 	flagBeforeContext     int
@@ -139,7 +139,7 @@ General options:
 Search options:
   -c cat,...  limit search to only these categories
   -O          multiple searches are OR-ed (default: AND-ed)
-  -x          treat query as a regular expression
+  -F          interpret query as a plain text, not regular expression
 
 Formatting options:
   -1          output origins in a single line (implies -o)
@@ -175,7 +175,7 @@ func initFlags() {
 
 	flag.StringVar(&flagCategories, "c", flagCategories, "")
 	flag.BoolVar(&flagOred, "O", false, "")
-	flag.BoolVar(&flagRegexp, "x", false, "")
+	flag.BoolVar(&flagPlainText, "F", false, "")
 
 	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
 	flag.IntVar(&flagAfterContext, "A", 0, "")
