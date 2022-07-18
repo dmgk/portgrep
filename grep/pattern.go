@@ -1,9 +1,9 @@
 package grep
 
 import (
-	"flag"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type Regexp struct {
@@ -33,12 +33,12 @@ func (r *Regexp) Match(text []byte) (*Result, error) {
 }
 
 type Pattern interface {
+	Option() byte
 	Description() string
-	Empty() bool
-	Compile(ctxBefore, ctxAfter int) (*Regexp, error)
-	CompileNoQuote(ctxBefore, ctxAfter int) (*Regexp, error)
+	Compile(ctxBefore, ctxAfter int, quote bool) (*Regexp, error)
 
-	register()
+	optionString() string
+	setQuery(query string)
 }
 
 const (
@@ -70,199 +70,177 @@ func compile(pat string) (*regexp.Regexp, int, int, error) {
 }
 
 type stringPattern struct {
-	flag string
-	desc string
-	pat  string
-	val  string
+	opt   byte
+	pref  string
+	desc  string
+	pat   string
+	query string
+}
+
+func (p *stringPattern) Option() byte {
+	return p.opt
 }
 
 func (p *stringPattern) Description() string {
-	return fmt.Sprintf("-%-2s query   %s", p.flag, p.desc)
-}
-
-func (p *stringPattern) Empty() bool {
-	return p.val == ""
-}
-
-func (p *stringPattern) CompileNoQuote(ctxBefore, ctxAfter int) (*Regexp, error) {
-	if p.Empty() {
-		return nil, nil
+	if p.pref != "" {
+		return fmt.Sprintf("-%c %s:query  %s", p.opt, p.pref, p.desc)
 	}
+	return fmt.Sprintf("-%c query    %s", p.opt, p.desc)
+}
 
-	re, qsi, rsi, err := compile(fmt.Sprintf(p.pat, ctxBefore, p.val, ctxAfter))
+func (p *stringPattern) optionString() string {
+	return string(p.opt) + ":"
+}
+
+func (p *stringPattern) setQuery(query string) {
+	p.query = query
+}
+
+func (p *stringPattern) Compile(ctxBefore, ctxAfter int, quote bool) (*Regexp, error) {
+	q := p.query
+	if quote {
+		q = regexp.QuoteMeta(q)
+	}
+	re, qsi, rsi, err := compile(fmt.Sprintf(p.pat, ctxBefore, q, ctxAfter))
 	if err != nil {
 		return nil, err
 	}
-
 	return &Regexp{re, qsi, rsi}, nil
 }
 
-func (p *stringPattern) Compile(ctxBefore, ctxAfter int) (*Regexp, error) {
-	p.val = regexp.QuoteMeta(p.val)
-	return p.CompileNoQuote(ctxBefore, ctxAfter)
-}
-
-func (p *stringPattern) register() {
-	flag.StringVar(&p.val, p.flag, "", p.desc)
-}
-
 type boolPattern struct {
-	flag string
+	opt  byte
+	pref string
 	desc string
 	pat  string
-	val  bool
+}
+
+func (p *boolPattern) Option() byte {
+	return p.opt
 }
 
 func (p *boolPattern) Description() string {
-	return fmt.Sprintf("-%-2s         %s", p.flag, p.desc)
-}
-
-func (p *boolPattern) Empty() bool {
-	return !p.val
-}
-
-func (p *boolPattern) CompileNoQuote(ctxBefore, ctxAfter int) (*Regexp, error) {
-	if p.Empty() {
-		return nil, nil
+	if p.pref != "" {
+		return fmt.Sprintf("-%c %s        %s", p.opt, p.pref, p.desc)
 	}
+	return fmt.Sprintf("-%c          %s", p.opt, p.desc)
+}
 
+func (p *boolPattern) setQuery(query string) {
+	// noop
+}
+
+func (p *boolPattern) optionString() string {
+	return string(p.opt)
+}
+
+func (p *boolPattern) Compile(ctxBefore, ctxAfter int, quote bool) (*Regexp, error) {
 	re, qsi, rsi, err := compile(fmt.Sprintf(p.pat, ctxBefore, ctxAfter))
 	if err != nil {
 		return nil, err
 	}
-
 	return &Regexp{re, qsi, rsi}, nil
 }
 
-func (p *boolPattern) Compile(ctxBefore, ctxAfter int) (*Regexp, error) {
-	return p.CompileNoQuote(ctxBefore, ctxAfter)
+type Registry []Pattern
+
+func (r Registry) OptionString() string {
+	var b strings.Builder
+	for _, p := range r {
+		b.WriteString(p.optionString())
+	}
+	return b.String()
 }
 
-func (p *boolPattern) register() {
-	flag.BoolVar(&p.val, p.flag, false, p.desc)
+func (r Registry) Get(opt byte, query string) Pattern {
+	for _, p := range r {
+		if p.Option() == opt {
+			p.setQuery(query)
+			return p
+		}
+	}
+	return nil
 }
 
-type patternSlice []Pattern
-
-func (s patternSlice) Empty() bool {
-	for _, p := range s {
-		if !p.Empty() {
-			return false
-		}
+func Compile(query string, ctxBefore, ctxAfter int, quote bool) (*Regexp, error) {
+	p := &stringPattern{
+		// no query group, only result
+		pat:   `(?:.*\n){0,%d}.*(?P<q>)(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
+		query: query,
 	}
-	return true
-}
-
-// no query group, only result
-const customPat = `(?:.*\n){0,%d}.*(?P<q>)(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`
-
-func (s patternSlice) Compile(ctxBefore, ctxAfter int, valIsRegexp bool, custom ...string) ([]*Regexp, error) {
-	// create patterns for custom queries
-	var cps []Pattern
-	for _, c := range custom {
-		p := &stringPattern{
-			pat: customPat,
-			val: c,
-		}
-		cps = append(cps, p)
-	}
-
-	var res []*Regexp
-	for _, p := range append(s, cps...) {
-		var re *Regexp
-		var err error
-		if valIsRegexp {
-			re, err = p.CompileNoQuote(ctxBefore, ctxAfter)
-		} else {
-			re, err = p.Compile(ctxBefore, ctxAfter)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if re != nil {
-			res = append(res, re)
-		}
-	}
-
-	return res, nil
-}
-
-func (s patternSlice) register() {
-	for _, p := range s {
-		p.register()
-	}
+	return p.Compile(ctxBefore, ctxAfter, quote)
 }
 
 var (
+	depends = &stringPattern{
+		opt:  'd',
+		pref: "",
+		desc: "search by *_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	buildDepends = &stringPattern{
+		opt:  'b',
+		pref: "",
+		desc: "search by BUILD_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	libDepends = &stringPattern{
+		opt:  'l',
+		pref: "",
+		desc: "search by LIB_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	runDepends = &stringPattern{
+		opt:  'r',
+		pref: "",
+		desc: "search by RUN_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	testDepends = &stringPattern{
+		opt:  't',
+		pref: "",
+		desc: "search by TEST_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	onlyForArchs = &stringPattern{
+		opt:  'a',
+		pref: "",
+		desc: "search by ONLY_FOR_ARCHS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>ONLY_FOR_ARCHS)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	maintainer = &stringPattern{
+		opt:  'm',
+		pref: "",
+		desc: "search by MAINTAINER",
+		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
+	}
+	portname = &stringPattern{
+		opt:  'n',
+		pref: "",
+		desc: "search by PORTNAME",
+		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
+	}
+	uses = &stringPattern{
+		opt:  'u',
+		pref: "",
+		desc: "search by USES",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?USES)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))(?:.*\n){0,%d}`,
+	}
+	plist = &stringPattern{
+		opt:  'p',
+		pref: "",
+		desc: "search by PLIST_FILES",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?PLIST_FILES)\s*(\+|\?)?=.*?(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
+	}
 	broken = &boolPattern{
-		flag: "b",
+		opt:  'x',
+		pref: "",
 		desc: "search only ports marked BROKEN",
 		pat:  `(?:.*\n){0,%d}\b(?P<q>BROKEN(_[^=]+)?)\s*\??=(?P<r>.*)(\n|\z)(?:.*\n){0,%d}`,
 	}
-	depends = &stringPattern{
-		flag: "d",
-		desc: "search by *_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	buildDepends = &stringPattern{
-		flag: "db",
-		desc: "search by BUILD_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?BUILD_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	libDepends = &stringPattern{
-		flag: "dl",
-		desc: "search by LIB_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?LIB_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:\.].*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	runDepends = &stringPattern{
-		flag: "dr",
-		desc: "search by RUN_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?RUN_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	testDepends = &stringPattern{
-		flag: "dt",
-		desc: "search by TEST_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	onlyForArchs = &stringPattern{
-		flag: "oa",
-		desc: "search by ONLY_FOR_ARCHS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>ONLY_FOR_ARCHS)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	maintainer = &stringPattern{
-		flag: "m",
-		desc: "search by MAINTAINER",
-		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	portname = &stringPattern{
-		flag: "n",
-		desc: "search by PORTNAME",
-		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	uses = &stringPattern{
-		flag: "u",
-		desc: "search by USES",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?USES)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|[\s:,].*(\n|\z))(?:.*\n){0,%d}`,
-		val:  "",
-	}
-	plist = &stringPattern{
-		flag: "pl",
-		desc: "search by PLIST_FILES",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?PLIST_FILES)\s*(\+|\?)?=.*?(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
-		val:  "",
-	}
 )
 
-var Patterns = patternSlice{
-	broken,
+var Patterns = Registry{
 	depends,
 	buildDepends,
 	libDepends,
@@ -273,8 +251,5 @@ var Patterns = patternSlice{
 	onlyForArchs,
 	plist,
 	uses,
-}
-
-func init() {
-	Patterns.register()
+	broken,
 }

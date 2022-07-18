@@ -5,14 +5,8 @@ import (
 )
 
 func testStringPattern(t *testing.T, pat *stringPattern, val string, isRegexp bool, matches []string, nomatches []string) {
-	pat.val = val
-	var r *Regexp
-	var err error
-	if isRegexp {
-		r, err = pat.CompileNoQuote(0, 0)
-	} else {
-		r, err = pat.Compile(0, 0)
-	}
+	pat.query = val
+	r, err := pat.Compile(0, 0, !isRegexp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,8 +33,7 @@ func testStringPattern(t *testing.T, pat *stringPattern, val string, isRegexp bo
 }
 
 func testBoolPattern(t *testing.T, pat *boolPattern, matches []string, nomatches []string) {
-	pat.val = true
-	r, err := pat.Compile(0, 0)
+	r, err := pat.Compile(0, 0, false)
 	if err != nil {
 		t.Fatal(err)
 	}

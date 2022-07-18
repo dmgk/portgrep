@@ -19,10 +19,8 @@ var Stop = errors.New("stop")
 type Result struct {
 	// Text holds the match as a byte slice
 	Text []byte
-
 	// QuerySubmatch is a byte index pair identifying the query submatch in Text
 	QuerySubmatch []int
-
 	// QuerySubmatch is a byte index pair identifying the result submatch in Text
 	ResultSubmatch []int
 }
@@ -45,18 +43,18 @@ type GrepFunc func(path string, res Results, err error) error
 // rxs are AND-ed together, this can be changed by setting rxsOred to true.
 // The search will be run by using up to jobs goroutines, the usual practice is
 // to set this to runtime.NumCPU() for the best results.
-func Grep(root string, cats []string, rxs []*Regexp, rxsOred bool, fn GrepFunc, jobs int) error {
-	walkPipe, err := walk(root, cats, jobs)
+func Grep(portsRoot string, categories []string, rxs []*Regexp, rxsOred bool, gfn GrepFunc, maxJobs int) error {
+	walkCh, err := walk(portsRoot, categories, maxJobs)
 	if err != nil {
 		return err
 	}
-	grepPipe, err := walkPipe.grep(rxs, rxsOred, jobs)
+	grepCh, err := walkCh.grep(rxs, rxsOred, maxJobs)
 	if err != nil {
 		return err
 	}
 
-	for x := range grepPipe {
-		if err := fn(x.path, x.results, x.err); err != nil {
+	for x := range grepCh {
+		if err := gfn(x.path, x.results, x.err); err != nil {
 			if err == Stop {
 				break
 			}
@@ -86,8 +84,8 @@ type walkResult struct {
 
 type walkChan chan walkResult
 
-func walk(root string, cats []string, jobs int) (walkChan, error) {
-	dir, err := ioutil.ReadDir(root)
+func walk(portsRoot string, categories []string, maxJobs int) (walkChan, error) {
+	dir, err := ioutil.ReadDir(portsRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +95,14 @@ func walk(root string, cats []string, jobs int) (walkChan, error) {
 	go func() {
 		defer close(out)
 
-		// prepare category filter "set" for fast lookup
-		catm := make(map[string]struct{})
-		for _, c := range cats {
-			catm[c] = struct{}{}
+		// prepare category filter set for fast lookup
+		catSet := make(map[string]struct{})
+		for _, c := range categories {
+			catSet[c] = struct{}{}
 		}
 
 		var wg sync.WaitGroup
-		sem := make(chan int, jobs)
+		sem := make(chan int, maxJobs)
 
 		for _, fi := range dir {
 			if !fi.IsDir() {
@@ -116,8 +114,8 @@ func walk(root string, cats []string, jobs int) (walkChan, error) {
 				continue
 			}
 
-			if len(catm) != 0 {
-				if _, ok := catm[name]; !ok {
+			if len(catSet) != 0 {
+				if _, ok := catSet[name]; !ok {
 					continue
 				}
 			}
@@ -125,21 +123,21 @@ func walk(root string, cats []string, jobs int) (walkChan, error) {
 			sem <- 1
 			wg.Add(1)
 
-			go func(category string) {
+			go func(cat string) {
 				defer func() {
 					<-sem
 					wg.Done()
 				}()
 
-				categoryRoot := filepath.Join(root, category)
-				dir, err := ioutil.ReadDir(categoryRoot)
+				catRoot := filepath.Join(portsRoot, cat)
+				dir, err := ioutil.ReadDir(catRoot)
 				if err != nil {
 					out <- walkResult{err: err}
 					return
 				}
 				for _, fi := range dir {
 					if fi.IsDir() {
-						out <- walkResult{path: filepath.Join(categoryRoot, fi.Name())}
+						out <- walkResult{path: filepath.Join(catRoot, fi.Name())}
 					}
 				}
 			}(name)
@@ -159,14 +157,14 @@ type grepResult struct {
 
 type grepChan chan grepResult
 
-func (walk walkChan) grep(rxs []*Regexp, rxsOr bool, jobs int) (grepChan, error) {
+func (walk walkChan) grep(rxs []*Regexp, rxsOr bool, maxJobs int) (grepChan, error) {
 	out := make(grepChan)
 
 	go func() {
 		defer close(out)
 
 		var wg sync.WaitGroup
-		sem := make(chan int, jobs)
+		sem := make(chan int, maxJobs)
 
 		for w := range walk {
 			if w.err != nil {

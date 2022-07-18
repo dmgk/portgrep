@@ -1,151 +1,43 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"os"
-	"path"
 	"runtime"
 	"runtime/debug"
-	"sort"
 	"strings"
+	"unicode"
 
+	"github.com/dmgk/getopt"
 	"github.com/dmgk/portgrep/formatter"
 	"github.com/dmgk/portgrep/grep"
 	"github.com/mattn/go-isatty"
 )
 
-func main() {
-	if flag.NFlag() == 0 && flag.NArg() == 0 {
-		flag.Usage()
-		os.Exit(0)
-	}
-
-	if flagVersion {
-		fmt.Fprintln(os.Stderr, version)
-		os.Exit(0)
-	}
-
-	var err error
-
-	if flagSort {
-		err = runSorted(flag.Args()...)
-	} else {
-		err = runUnsorted(flag.Args()...)
-	}
-
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(0)
-	}
-}
-
-func runUnsorted(custom ...string) error {
-	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, !flagPlainText, custom...)
-	if err != nil {
-		return err
-	}
-
-	fn := func(path string, results grep.Results, err error) error {
-		if err != nil {
-			return err
-		}
-		return form.Format(path, results)
-	}
-
-	var cats []string
-	if flagCategories != "" {
-		cats = strings.Split(flagCategories, ",")
-	}
-
-	return grep.Grep(flagPortsRoot, cats, rxs, flagOred, fn, runtime.NumCPU())
-}
-
-func runSorted(custom ...string) error {
-	rxs, err := grep.Patterns.Compile(flagBeforeContext, flagAfterContext, !flagPlainText, custom...)
-	if err != nil {
-		return err
-	}
-
-	type r struct {
-		path    string
-		results grep.Results
-	}
-	var rr []*r
-
-	fn := func(path string, results grep.Results, err error) error {
-		if err != nil {
-			return err
-		}
-		rr = append(rr, &r{path, results})
-		return nil
-	}
-
-	var cats []string
-	if flagCategories != "" {
-		cats = strings.Split(flagCategories, ",")
-	}
-
-	err = grep.Grep(flagPortsRoot, cats, rxs, flagOred, fn, runtime.NumCPU())
-	if err != nil {
-		return err
-	}
-
-	sort.Slice(rr, func(i, j int) bool {
-		return rr[i].path < rr[j].path
-	})
-
-	for _, r := range rr {
-		if err := form.Format(r.path, r.results); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-var (
-	flagColorMode         = "auto"
-	flagColors            = formatter.DefaultColors
-	flagPortsRoot         = "/usr/ports"
-	flagVersion           bool
-	flagCategories        string
-	flagOred              bool
-	flagPlainText         bool
-	flagOriginsSingleLine bool
-	flagAfterContext      int
-	flagBeforeContext     int
-	flagAroundContext     int
-	flagOriginOnly        bool
-	flagSort              bool
-	flagNoIndent          bool
-)
-
-var version = "devel"
-
-var usageTemplate = template.Must(template.New("Usage").Parse(`
-Usage: {{.basename}} [options] [query ...]
+var usageTmpl = template.Must(template.New("usage").Parse(`
+usage: {{.progname}} [options] [query ...]
 
 General options:
+  -h          show help and exit
+  -V          show version and exit
   -R path     ports tree root (default: {{.portsRoot}})
   -M mode     colorized output mode: [auto|never|always] (default: {{.colorMode}})
   -G colors   set colors (default: "{{.colors}}")
               the order is query,match,path,separator; see ls(1) for color codes
-  -h          show help and exit
-  -V          show version and exit
 
 Search options:
-  -c cat,...  limit search to only these categories
+  -c name,... limit search to only these categories
   -O          multiple searches are OR-ed (default: AND-ed)
   -F          interpret query as a plain text, not regular expression
+  -j jobs     number of parallel jobs (default: {{.maxJobs}})
 
 Formatting options:
   -1          output origins in a single line (implies -o)
-  -A n        show n lines of context after match
-  -B n        show n lines of context before match
-  -C n        show n lines of context around match
+  -A count    show count lines of context after match
+  -B count    show count lines of context before match
+  -C count    show count lines of context around match
   -o          output origins only
   -s          sort results by origin
   -T          do not indent results
@@ -154,76 +46,22 @@ Predefined searches:{{range .patterns}}
   {{.Description}}{{end}}
 `[1:]))
 
-func initFlags() {
-	// disable GC, this is short-running utility and performance is more
-	// important than memory consumption
-	debug.SetGCPercent(-1)
-
-	basename := path.Base(os.Args[0])
-
-	if val, ok := os.LookupEnv("PORTSDIR"); ok && val != "" {
-		flagPortsRoot = val
-	}
-	if val, ok := os.LookupEnv("PORTGREP_COLORS"); ok && val != "" {
-		flagColors = val
-	}
-
-	flag.StringVar(&flagPortsRoot, "R", flagPortsRoot, "")
-	flag.StringVar(&flagColorMode, "M", flagColorMode, "")
-	flag.StringVar(&flagColors, "G", flagColors, "")
-	flag.BoolVar(&flagVersion, "V", false, "")
-
-	flag.StringVar(&flagCategories, "c", flagCategories, "")
-	flag.BoolVar(&flagOred, "O", false, "")
-	flag.BoolVar(&flagPlainText, "F", false, "")
-
-	flag.BoolVar(&flagOriginsSingleLine, "1", false, "")
-	flag.IntVar(&flagAfterContext, "A", 0, "")
-	flag.IntVar(&flagBeforeContext, "B", 0, "")
-	flag.IntVar(&flagAroundContext, "C", 0, "")
-	flag.BoolVar(&flagOriginOnly, "o", false, "")
-	flag.BoolVar(&flagSort, "s", false, "")
-	flag.BoolVar(&flagNoIndent, "T", false, "")
-
-	flag.Usage = func() {
-		err := usageTemplate.Execute(os.Stderr, map[string]interface{}{
-			"basename":  basename,
-			"portsRoot": flagPortsRoot,
-			"colorMode": flagColorMode,
-			"colors":    flagColors,
-			"patterns":  grep.Patterns,
-		})
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	flag.Parse()
-
-	if flagPortsRoot == "" {
-		fmt.Fprintln(os.Stderr, "ports tree root cannot be blank")
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	if flagColorMode != colorModeAuto && flagColorMode != colorModeAlways && flagColorMode != colorModeNever {
-		fmt.Fprintf(os.Stderr, "invalid color mode: %s\n", flagColorMode)
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	if flagAroundContext > 0 && flagAfterContext == 0 {
-		flagAfterContext = flagAroundContext
-	}
-	if flagAroundContext > 0 && flagBeforeContext == 0 {
-		flagBeforeContext = flagAroundContext
-	}
-
-	// neither predefined query or custom regexp provided
-	if grep.Patterns.Empty() && flag.NArg() == 0 {
-		flagOriginOnly = true
-	}
-}
+var (
+	progname          string
+	version           = "devel"
+	portsRoot         = "/usr/ports"
+	colorMode         = "auto"
+	colors            = formatter.DefaultColors
+	categories        []string
+	ored              bool
+	plainText         bool
+	maxJobs           = runtime.NumCPU()
+	originsSingleLine bool
+	contextAfter      int
+	contextBefore     int
+	originsOnly       bool
+	noIndent          bool
+)
 
 const (
 	colorModeAuto   = "auto"
@@ -231,34 +69,194 @@ const (
 	colorModeNever  = "never"
 )
 
-var form formatter.Formatter
+func showUsage() {
+	err := usageTmpl.Execute(os.Stdout, map[string]interface{}{
+		"progname":  progname,
+		"colorMode": colorMode,
+		"colors":    colors,
+		"maxJobs":   maxJobs,
+		"patterns":  grep.Patterns,
+	})
+	if err != nil {
+		panic(fmt.Sprintf("error executing template %s: %v", usageTmpl.Name(), err))
+	}
+}
 
-func initFormatter() {
+func showVersion() {
+	fmt.Printf("%s %s\n", progname, version)
+}
+
+func errExit(format string, v ...interface{}) {
+	fmt.Fprint(os.Stderr, progname, ": ")
+	fmt.Fprintf(os.Stderr, format, v...)
+	fmt.Fprintln(os.Stderr)
+	os.Exit(1)
+}
+
+func main() {
+	// disable GC, this is short-running utility and performance is more
+	// important than memory consumption
+	debug.SetGCPercent(-1)
+
+	if v, ok := os.LookupEnv("PORTSDIR"); ok && v != "" {
+		portsRoot = v
+	}
+	if v, ok := os.LookupEnv("PORTGREP_COLORS"); ok && v != "" {
+		colors = v
+	}
+
+	opts, err := getopt.NewArgv("hVR:M:G:c:OFj:1A:B:C:osT"+grep.Patterns.OptionString(), argsWithDefaults(os.Args, "PORTGREP_OPTS"))
+	if err != nil {
+		panic(fmt.Sprintf("error creating options parser: %s", err))
+	}
+	progname = opts.ProgramName()
+
+	var pts []grep.Pattern
+
+	for opts.Scan() {
+		opt, err := opts.Option()
+		if err != nil {
+			errExit(err.Error())
+		}
+
+		switch opt.Opt {
+		case 'h':
+			showUsage()
+			os.Exit(0)
+		case 'V':
+			showVersion()
+			os.Exit(0)
+		case 'R':
+			portsRoot = opt.String()
+		case 'M':
+			switch opt.String() {
+			case colorModeAuto, colorModeNever, colorModeAlways:
+				colorMode = opt.String()
+			default:
+				errExit("-M: invalid color mode: %s", opt.String())
+			}
+		case 'G':
+			colors = opt.String()
+		case 'c':
+			categories = splitOptions(opt.String())
+		case 'O':
+			ored = true
+		case 'F':
+			plainText = true
+		case 'j':
+			v, err := opt.Int()
+			if err != nil {
+				errExit("-j: %s", err.Error())
+			}
+			if v <= 0 {
+				v = 1
+			}
+			maxJobs = v
+		case '1':
+			originsSingleLine = true
+		case 'A':
+			v, err := opt.Int()
+			if err != nil {
+				errExit("-A: %s", err)
+			}
+			contextAfter = v
+		case 'B':
+			v, err := opt.Int()
+			if err != nil {
+				errExit("-B: %s", err)
+			}
+			contextBefore = v
+		case 'C':
+			v, err := opt.Int()
+			if err != nil {
+				errExit("-C: %s", err)
+			}
+			contextBefore = v
+			contextAfter = v
+		case 'o':
+			originsOnly = true
+		case 's':
+			maxJobs = 1
+		case 'T':
+			noIndent = true
+		default:
+			p := grep.Patterns.Get(opt.Opt, opt.String())
+			if p == nil {
+				panic("unhandled option: -" + string(opt.Opt))
+			}
+			pts = append(pts, p)
+		}
+	}
+
+	var rxs []*grep.Regexp
+
+	for _, p := range pts {
+		rx, err := p.Compile(contextBefore, contextAfter, plainText)
+		if err != nil {
+			errExit("-%c: %s", p.Option(), err)
+		}
+		rxs = append(rxs, rx)
+	}
+	for _, q := range opts.Args() {
+		rx, err := grep.Compile(q, contextBefore, contextAfter, plainText)
+		if err != nil {
+			errExit("query %q: %s", q, err)
+		}
+		rxs = append(rxs, rx)
+	}
+
+	// show only origins if neither predefined query or custom regexp provided
+	if len(rxs) == 0 {
+		originsOnly = true
+	}
+
+	f := initFormatter()
+	gfn := func(path string, results grep.Results, err error) error {
+		if err != nil {
+			return err
+		}
+		return f.Format(path, results)
+	}
+	if err := grep.Grep(portsRoot, categories, rxs, ored, gfn, maxJobs); err != nil {
+		errExit(err.Error())
+	}
+}
+
+func initFormatter() formatter.Formatter {
 	var w io.Writer = os.Stdout
 	flags := formatter.Fdefaults
 	term := isatty.IsTerminal(os.Stdout.Fd())
 
-	if flagColorMode == colorModeAlways || (term && flagColorMode == colorModeAuto) {
+	if colorMode == colorModeAlways || (term && colorMode == colorModeAuto) {
 		flags |= formatter.Fcolor
-		if flagColors != "" {
-			formatter.SetColors(flagColors)
+		if colors != "" {
+			formatter.SetColors(colors)
 		}
 	}
-
-	if flagOriginsSingleLine {
+	if originsSingleLine {
 		flags |= formatter.ForiginsSingleLine
 	}
-	if flagOriginOnly {
+	if originsOnly {
 		flags |= formatter.ForiginsOnly
 	}
 
-	form = formatter.NewText(w, flagPortsRoot, flags)
-	if !flagNoIndent {
-		form.SetIndent("\t")
+	f := formatter.NewText(w, portsRoot, flags)
+	if !noIndent {
+		f.SetIndent("\t")
 	}
+	return f
 }
 
-func init() {
-	initFlags()
-	initFormatter()
+func argsWithDefaults(argv []string, env string) []string {
+	args := argv[1:]
+	if v, ok := os.LookupEnv(env); ok && v != "" {
+		args = append(splitOptions(v), args...)
+	}
+	return append([]string{argv[0]}, args...)
+}
+
+func splitOptions(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool {
+		return unicode.IsSpace(r) || r == ','
+	})
 }

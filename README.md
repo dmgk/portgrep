@@ -6,47 +6,48 @@ portgrep is a fast parallel ports tree search utility.
 
 #### Installation
 
-    go install github.com/dmgk/portgrep
+    go install github.com/dmgk/portgrep@latest
 
 #### Usage
 
 ```
-Usage: portgrep [options] [query ...]
+usage: portgrep [options] [query ...]
 
 General options:
-  -R path     ports tree root (default: /usr/ports)
+  -h          show help and exit
+  -V          show version and exit
+  -R path     ports tree root (default: )
   -M mode     colorized output mode: [auto|never|always] (default: auto)
   -G colors   set colors (default: "BCDA")
               the order is query,match,path,separator; see ls(1) for color codes
-  -h          show help and exit
-  -V          show version and exit
 
 Search options:
-  -c cat,...  limit search to only these categories
+  -c name,... limit search to only these categories
   -O          multiple searches are OR-ed (default: AND-ed)
-  -x          treat query as a regular expression
+  -F          interpret query as a plain text, not regular expression
+  -j jobs     number of parallel jobs (default: 8)
 
 Formatting options:
   -1          output origins in a single line (implies -o)
-  -A n        show n lines of context after match
-  -B n        show n lines of context before match
-  -C n        show n lines of context around match
+  -A count    show count lines of context after match
+  -B count    show count lines of context before match
+  -C count    show count lines of context around match
   -o          output origins only
   -s          sort results by origin
   -T          do not indent results
 
 Predefined searches:
-  -b          search only ports marked BROKEN
-  -d  query   search by *_DEPENDS
-  -db query   search by BUILD_DEPENDS
-  -dl query   search by LIB_DEPENDS
-  -dr query   search by RUN_DEPENDS
-  -dt query   search by TEST_DEPENDS
-  -m  query   search by MAINTAINER
-  -n  query   search by PORTNAME
-  -oa query   search by ONLY_FOR_ARCHS
-  -pl query   search by PLIST_FILES
-  -u  query   search by USES
+  -d query    search by *_DEPENDS
+  -b query    search by BUILD_DEPENDS
+  -l query    search by LIB_DEPENDS
+  -r query    search by RUN_DEPENDS
+  -t query    search by TEST_DEPENDS
+  -m query    search by MAINTAINER
+  -n query    search by PORTNAME
+  -a query    search by ONLY_FOR_ARCHS
+  -p query    search by PLIST_FILES
+  -u query    search by USES
+  -x          search only ports marked BROKEN
 ```
 
 #### Examples:
@@ -54,7 +55,7 @@ Predefined searches:
 Find broken USES=go ports:
 
 ```sh
-$ portgrep -u go -b
+$ portgrep -x -u go
 databases/cayley:
         BROKEN_i386=    gopkg.in/mgo.v2/bson/json.go:320:7: constant 9007199254740992 overflows int
         --------
@@ -72,7 +73,7 @@ databases/mongodb36-tools:
 Find ports depending on `libcjson`, with 2 lines of context:
 
 ```sh
-$ portgrep -d libcjson -C 2
+$ portgrep -d libcjson -C2
 audio/ocp:
 
         BUILD_DEPENDS=  xa65:devel/xa65
@@ -117,7 +118,7 @@ devel/tinycbor:
 Search by an arbitrary regex:
 
 ```sh
-$ portgrep -x 'REINPLACE_CMD.*\s-i'
+$ portgrep 'REINPLACE_CMD.*\s-i'
 www/yarn:
 
                 @${REINPLACE_CMD} -i '' \
