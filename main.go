@@ -205,9 +205,9 @@ func main() {
 		rxs = append(rxs, rx)
 	}
 
-	// show only origins if neither predefined query or custom regexp provided
 	if len(rxs) == 0 {
-		originsOnly = true
+		showUsage()
+		os.Exit(0)
 	}
 
 	f := initFormatter()

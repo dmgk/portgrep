@@ -172,11 +172,17 @@ func Compile(query string, ctxBefore, ctxAfter int, quote bool) (*Regexp, error)
 }
 
 var (
-	depends = &stringPattern{
-		opt:  'd',
+	portname = &stringPattern{
+		opt:  'n',
 		pref: "",
-		desc: "search by *_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+		desc: "search by PORTNAME",
+		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
+	}
+	maintainer = &stringPattern{
+		opt:  'm',
+		pref: "",
+		desc: "search by MAINTAINER",
+		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 	}
 	buildDepends = &stringPattern{
 		opt:  'b',
@@ -202,23 +208,17 @@ var (
 		desc: "search by TEST_DEPENDS",
 		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
 	}
+	allDepends = &stringPattern{
+		opt:  'd',
+		pref: "",
+		desc: "search by *_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
 	onlyForArchs = &stringPattern{
 		opt:  'a',
 		pref: "",
 		desc: "search by ONLY_FOR_ARCHS",
 		pat:  `(?:.*\n){0,%d}\b(?P<q>ONLY_FOR_ARCHS)\s*(\+|\?)?(=|=.*?\s)(?P<r>%s)((\n|\z)|\s.*(\n|\z))(?:.*\n){0,%d}`,
-	}
-	maintainer = &stringPattern{
-		opt:  'm',
-		pref: "",
-		desc: "search by MAINTAINER",
-		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
-	}
-	portname = &stringPattern{
-		opt:  'n',
-		pref: "",
-		desc: "search by PORTNAME",
-		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>PORTNAME)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 	}
 	uses = &stringPattern{
 		opt:  'u',
@@ -241,15 +241,15 @@ var (
 )
 
 var Patterns = Registry{
-	depends,
+	portname,
+	maintainer,
 	buildDepends,
 	libDepends,
 	runDepends,
 	testDepends,
-	maintainer,
-	portname,
+	allDepends,
 	onlyForArchs,
-	plist,
 	uses,
+	plist,
 	broken,
 }

@@ -88,7 +88,7 @@ func TestDepends(t *testing.T) {
 		"_DEPENDS=		bash:/shells/bash",
 	}
 
-	testStringPattern(t, depends, "bash", false, matches, nomatches)
+	testStringPattern(t, allDepends, "bash", false, matches, nomatches)
 }
 
 func TestBuildDepends(t *testing.T) {
