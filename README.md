@@ -37,17 +37,17 @@ Formatting options:
   -T          do not indent results
 
 Predefined searches:
+  -n query    search by PORTNAME
+  -m query    search by MAINTAINER
   -d query    search by *_DEPENDS
   -b query    search by BUILD_DEPENDS
   -l query    search by LIB_DEPENDS
   -r query    search by RUN_DEPENDS
   -t query    search by TEST_DEPENDS
-  -m query    search by MAINTAINER
-  -n query    search by PORTNAME
   -a query    search by ONLY_FOR_ARCHS
-  -p query    search by PLIST_FILES
   -u query    search by USES
-  -x          search only ports marked BROKEN
+  -p query    search by PLIST_FILES
+  -X          search only ports marked BROKEN
 ```
 
 #### Examples:
@@ -55,7 +55,7 @@ Predefined searches:
 Find broken USES=go ports:
 
 ```sh
-$ portgrep -x -u go
+$ portgrep -X -u go
 databases/cayley:
         BROKEN_i386=    gopkg.in/mgo.v2/bson/json.go:320:7: constant 9007199254740992 overflows int
         --------
@@ -93,26 +93,6 @@ multimedia/librist:
                         libmbedcrypto.so:security/mbedtls
 
         USES=           localbase:ldflags meson pkgconfig
-devel/libcbor:
-        LICENSE_FILE=   ${WRKSRC}/LICENSE.md
-
-        LIB_DEPENDS=    libcjson.so:devel/libcjson
-
-        USES=           cmake
-net/mosquitto:
-
-        BUILD_DEPENDS=  xsltproc:textproc/libxslt \
-                        docbook-xsl>0:textproc/docbook-xsl
-        LIB_DEPENDS=    libuuid.so:misc/e2fsprogs-libuuid \
-                        libcjson.so:devel/libcjson
-        RUN_DEPENDS=    ${LOCALBASE}/share/certs/ca-root-nss.crt:security/ca_root_nss
-
-devel/tinycbor:
-        LICENSE_FILE=   ${WRKSRC}/LICENSE
-
-        LIB_DEPENDS=    libcjson.so:devel/libcjson
-
-        USES=           gmake localbase pathfix
 ```
 
 Search by an arbitrary regex:

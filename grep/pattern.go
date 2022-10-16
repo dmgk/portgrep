@@ -184,6 +184,12 @@ var (
 		desc: "search by MAINTAINER",
 		pat:  `(?i)(?:.*\n){0,%d}\b(?P<q>MAINTAINER)\s*\??=\s*(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 	}
+	allDepends = &stringPattern{
+		opt:  'd',
+		pref: "",
+		desc: "search by *_DEPENDS",
+		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
+	}
 	buildDepends = &stringPattern{
 		opt:  'b',
 		pref: "",
@@ -208,12 +214,6 @@ var (
 		desc: "search by TEST_DEPENDS",
 		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?TEST_DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
 	}
-	allDepends = &stringPattern{
-		opt:  'd',
-		pref: "",
-		desc: "search by *_DEPENDS",
-		pat:  `(?:.*\n){0,%d}\b(?P<q>(\w+_)?DEPENDS)\s*(\+|\?)?(=|=.*?[\s/}])(?P<r>%s)((\n|\z)|[\s@:>\.].*(\n|\z))(?:.*\n){0,%d}`,
-	}
 	onlyForArchs = &stringPattern{
 		opt:  'a',
 		pref: "",
@@ -233,7 +233,7 @@ var (
 		pat:  `(?:.*\n){0,%d}\b(?P<q>([\w_]+_)?PLIST_FILES)\s*(\+|\?)?=.*?(?P<r>%s).*(\n|\z)(?:.*\n){0,%d}`,
 	}
 	broken = &boolPattern{
-		opt:  'x',
+		opt:  'X',
 		pref: "",
 		desc: "search only ports marked BROKEN",
 		pat:  `(?:.*\n){0,%d}\b(?P<q>BROKEN(_[^=]+)?)\s*\??=(?P<r>.*)(\n|\z)(?:.*\n){0,%d}`,
@@ -243,11 +243,11 @@ var (
 var Patterns = Registry{
 	portname,
 	maintainer,
+	allDepends,
 	buildDepends,
 	libDepends,
 	runDepends,
 	testDepends,
-	allDepends,
 	onlyForArchs,
 	uses,
 	plist,
